@@ -102,7 +102,7 @@ async function createSigpassWallet(name: string) {
   const request = new Request("sigpass");
   const response = new Response(handle);
   await cache.put(request, response);
-  localStorage.setItem("WALLET_STATUS", "TRUE");
+  localStorage.setItem("SIGPASS_STATUS", "TRUE");
 
   // Return the handle
   if (handle) {
@@ -116,7 +116,7 @@ async function checkSigpassWallet() {
   /**
    * Retrieve the handle to the private key from some unauthenticated storage
    */
-  const status: string | null = localStorage.getItem("WALLET_STATUS");
+  const status: string | null = localStorage.getItem("SIGPASS_STATUS");
 
   if (status) {
     return true;

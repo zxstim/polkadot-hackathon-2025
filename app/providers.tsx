@@ -19,7 +19,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, http } from 'wagmi';
 // import according to docs
 
-export const westendAssetHubPolkadot = defineChain({
+export const westendAssetHub = defineChain({
   id: 420420421,
   name: "Asset-Hub Westend Testnet",
   nativeCurrency: {
@@ -48,8 +48,8 @@ const { wallets } = getDefaultWallets();
 // initialize and destructure wallets object
 
 const config = getDefaultConfig({
-  appName: 'DOTUI', // Name your app
-  projectId: "68a1d22856b8144f2ce4692afa1e40a4", // Enter your WalletConnect Project ID here
+  appName: "DOTUI", // Name your app
+  projectId: "YOUR_PROJECT_ID", // Enter your WalletConnect Project ID here
   wallets: [
     ...wallets,
     {
@@ -58,12 +58,14 @@ const config = getDefaultConfig({
     },
   ],
   chains: [
+    westendAssetHub,
     moonbeam,
     moonbaseAlpha
   ],
   transports: {
-    [moonbeam.id]: http('https://rpc.ankr.com/kaia'),
-    [moonbaseAlpha.id]: http('https://rpc.ankr.com/kaia_testnet'),
+    [westendAssetHub.id]: http(),
+    [moonbeam.id]: http(),
+    [moonbaseAlpha.id]: http(),
   },
   ssr: true, // Because it is Nextjs's App router, you need to declare ssr as true
 });
