@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import '@rainbow-me/rainbowkit/styles.css';
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { Button } from "@/components/ui/button";
-import { Copy, Check, KeyRound, Ban, ExternalLink, LogOut, ChevronDown } from 'lucide-react';
+import { Copy, Check, KeyRound, Ban, ExternalLink, LogOut, ChevronDown, X } from 'lucide-react';
 import { Address } from "viem/accounts";
 import { createSigpassWallet, getSigpassWallet, checkSigpassWallet, checkBrowserWebAuthnSupport } from "@/lib/sigpass";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -264,7 +264,7 @@ export default function SigpassKit() {
               {webAuthnSupport ? (
                   <Button 
                     className="rounded-xl font-bold text-md hover:scale-105 transition-transform" 
-                    onClick={() => createSigpassWallet("dapp")}
+                    onClick={createWallet}
                   >
                     <KeyRound />
                     Create
@@ -284,15 +284,61 @@ export default function SigpassKit() {
             </DrawerFooter>
           </DrawerContent>
         </Drawer>
-      ) : wallet ? (
+      ) : wallet && !account.isConnected && address === undefined ? (
         <Button 
           className="rounded-xl font-bold text-md hover:scale-105 transition-transform"
           onClick={getWallet}
         >
           Get Wallet
         </Button>
+      ) : wallet && !account.isConnected && address ? (
+        <Drawer open={open} onOpenChange={setOpen}>
+          <DrawerTrigger asChild>
+            <Button 
+              className="border-2 border-primary rounded-xl font-bold text-md hover:scale-105 transition-transform"
+              variant="outline"
+            >
+              {truncateAddress(address)}
+              <ChevronDown />
+            </Button>
+          </DrawerTrigger>
+          <DrawerContent className="h-[250px]">
+            <DrawerHeader className="flex flex-row items-center justify-between">
+              <DrawerTitle>Wallet</DrawerTitle>
+              <DrawerClose asChild>
+                <Button variant="outline" size="icon">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </DrawerHeader>
+            <div className="p-4">
+              <p className="text-primary text-center font-bold text-lg mb-4">
+                {truncateAddress(address, 4)}
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <Button onClick={copyAddress} className="rounded-xl font-bold text-md hover:scale-105 transition-transform">
+                  {isCopied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+                <Button onClick={disconnect} variant="outline" className="rounded-xl font-bold text-md hover:scale-105 transition-transform">
+                  <LogOut />
+                  Disconnect
+                </Button>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
       ) : null}
-      <ConnectButton />
+      {!address ? <ConnectButton /> : null}
     </div>
   )
 }
