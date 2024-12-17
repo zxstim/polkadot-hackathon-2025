@@ -4,10 +4,11 @@ import { useState, useEffect } from "react";
 import '@rainbow-me/rainbowkit/styles.css';
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { Button } from "@/components/ui/button";
-import { Copy, Check, KeyRound, Ban, ExternalLink } from 'lucide-react';
+import { Copy, Check, KeyRound, Ban, ExternalLink, LogOut, ChevronDown } from 'lucide-react';
 import { Address } from "viem/accounts";
 import { createSigpassWallet, getSigpassWallet, checkSigpassWallet, checkBrowserWebAuthnSupport } from "@/lib/sigpass";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount } from 'wagmi';
 import {
   Dialog,
   DialogContent,
@@ -27,19 +28,17 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
-import { Separator } from "@/components/ui/separator"
 import Image from 'next/image';
 
 
-// this part is demo so feel free to remove
-import { parseEther, formatEther } from 'viem'
-
 export default function SigpassKit() {
   const [wallet, setWallet] = useState<boolean>(false);
-  const webAuthnSupport: boolean = checkBrowserWebAuthnSupport();
   const [open, setOpen] = useState<boolean>(false);
+  const [webAuthnSupport, setWebAuthnSupport] = useState<boolean>(false);
   const isDesktop = useMediaQuery("(min-width: 768px)")
+  const account = useAccount();
   const [address, setAddress] = useState<Address | undefined>(undefined);
+  const [isCopied, setIsCopied] = useState(false);
 
 
   useEffect(() => {
@@ -50,28 +49,53 @@ export default function SigpassKit() {
     fetchWalletStatus();
   }, []);
 
+  useEffect(() => {
+    const support = checkBrowserWebAuthnSupport();
+    setWebAuthnSupport(support);
+  }, []);
+
   async function getWallet() {
     const account = await getSigpassWallet();
     if (account) {
       setAddress(account.address);
+    } else {
+      console.error('Issue getting wallet');
+    }
+  }
+
+  async function createWallet() {
+    const account = await createSigpassWallet("dapp");
+    if (account) {
+      setOpen(false);
+      setWallet(true);
     }
   }
 
   // truncate address to 6 characters and add ... at the end
-  function truncateAddress(address: Address) {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  function truncateAddress(address: Address, length: number = 4) {
+    return `${address.slice(0, length)}...${address.slice(-length)}`;
   }
 
-  // truncate hash to 6 characters and add ... at the end
-  function truncateHash(hash: string) {
-    return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
+  function copyAddress() {
+    if (address) {
+      navigator.clipboard.writeText(address ? address : "");
+      setIsCopied(true);
+      setTimeout(() => {
+        setIsCopied(false);
+      }, 1000);
+    }
+  }
+
+  function disconnect() {
+    setAddress(undefined);
+    setOpen(false);
   }
 
 
   if (isDesktop) {
     return (
       <div className="flex flex-row gap-2 items-center">
-        {!wallet ? (
+        {!wallet && !account.isConnected && !address ? (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button className="rounded-xl font-bold text-md hover:scale-105 transition-transform">Create Wallet</Button>
@@ -119,7 +143,7 @@ export default function SigpassKit() {
                   webAuthnSupport ? (
                     <Button 
                       className="rounded-xl font-bold text-md hover:scale-105 transition-transform" 
-                      onClick={() => createSigpassWallet("dapp")} // add a name to the wallet, can be your dapp name or user input
+                      onClick={createWallet} // add a name to the wallet, can be your dapp name or user input
                     >
                       <KeyRound />
                       Create
@@ -138,22 +162,63 @@ export default function SigpassKit() {
               </div>
             </DialogContent>
           </Dialog>
-        ) : (
+        ) : wallet && !account.isConnected && address === undefined ? (
           <Button 
             className="rounded-xl font-bold text-md hover:scale-105 transition-transform"
             onClick={getWallet}
           >
             Get Wallet
           </Button>
-        )}
-        <ConnectButton />
+        ) : wallet && !account.isConnected && address ? 
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                className="border-2 border-primary rounded-xl font-bold text-md hover:scale-105 transition-transform"
+                variant="outline"
+              >
+                {truncateAddress(address)}
+                <ChevronDown />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="flex flex-col sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Wallet</DialogTitle>
+              </DialogHeader>
+              <DialogDescription className="text-primary text-center font-bold text-lg">
+                {truncateAddress(address, 4)}
+              </DialogDescription>
+              <div className="grid grid-cols-2 gap-4">
+                <Button onClick={copyAddress} className="rounded-xl font-bold text-md hover:scale-105 transition-transform">
+                  {isCopied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+                <Button onClick={disconnect} variant="outline" className="rounded-xl font-bold text-md hover:scale-105 transition-transform">
+                  <LogOut />
+                  Disconnect
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+         : null}
+        {
+          !address ? <ConnectButton /> : null
+        }
       </div>
     )
   }
  
   return (
     <div className="flex flex-row gap-2 items-center">
-      {!wallet ? (
+      {(!wallet && !account.isConnected && !address) ? (
         <Drawer open={open} onOpenChange={setOpen}>
           <DrawerTrigger asChild>
             <Button className="rounded-xl font-bold text-md hover:scale-105 transition-transform">Create Wallet</Button>
@@ -219,53 +284,16 @@ export default function SigpassKit() {
             </DrawerFooter>
           </DrawerContent>
         </Drawer>
-      ) : (
+      ) : wallet ? (
         <Button 
           className="rounded-xl font-bold text-md hover:scale-105 transition-transform"
           onClick={getWallet}
         >
           Get Wallet
         </Button>
-      )}
+      ) : null}
       <ConnectButton />
     </div>
   )
-}
-
-
- 
-function WalletCopyButton({
-  copyText,
-  buttonTitle,
-}: {
-  copyText: Address | string | null;
-  buttonTitle: string;
-}) {
-  const [isCopied, setIsCopied] = useState(false);
-
-  const copy = async () => {
-    await navigator.clipboard.writeText(copyText ? copyText : "");
-    setIsCopied(true);
-
-    setTimeout(() => {
-      setIsCopied(false);
-    }, 1000);
-  };
-
-  return (
-    <Button disabled={isCopied} onClick={copy} className="p-4 rounded-xl font-mono">
-      {isCopied ? (
-        <div className="flex flex-row gap-2 items-center">
-          {buttonTitle}
-          <Check className="h-4 w-4" />
-        </div>
-      ) : (
-        <div className="flex flex-row gap-2 items-center">
-          {buttonTitle}
-          <Copy className="h-4 w-4" />
-        </div>
-      )}
-    </Button>
-  );
 }
 

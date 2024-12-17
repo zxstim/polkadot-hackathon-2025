@@ -21,7 +21,7 @@ import { WagmiProvider, http } from 'wagmi';
 
 export const westendAssetHub = defineChain({
   id: 420420421,
-  name: "Asset-Hub Westend Testnet",
+  name: "Westend AssetHub",
   nativeCurrency: {
     decimals: 18,
     name: 'Westend',
