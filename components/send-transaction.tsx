@@ -5,7 +5,6 @@ import {
   type BaseError,
   useSendTransaction,
   useWaitForTransactionReceipt,
-  useBalance,
   useConfig
 } from "wagmi";
 import { parseEther, isAddress, Address } from "viem";
@@ -82,7 +81,6 @@ export default function SendTransaction() {
     isPending,
     sendTransaction,
   } = useSendTransaction();
-  const { data: balance, isLoading, refetch } = useBalance();
   const config = useConfig()
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [open, setOpen] = useState(false);

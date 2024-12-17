@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Copy } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { Address } from "viem";
 
@@ -21,7 +21,7 @@ export default function CopyButton({
 
   return (
     <Button variant="ghost" size="icon" onClick={copy}>
-      <Copy className="w-4 h-4" />
+      {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
     </Button>
   )
 }

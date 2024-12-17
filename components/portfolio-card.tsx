@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCcw } from 'lucide-react';
 
 export default function PortfolioCard() {
-  const { data: balance, isLoading, refetch } = useBalance();
+  const { data: balance, refetch } = useBalance();
   return (
     <div>
       <h1>Balance</h1>
