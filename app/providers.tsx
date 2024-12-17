@@ -49,7 +49,7 @@ const { wallets } = getDefaultWallets();
 
 const config = getDefaultConfig({
   appName: "DOTUI", // Name your app
-  projectId: "YOUR_PROJECT_ID", // Enter your WalletConnect Project ID here
+  projectId: "ddf8cf3ee0013535c3760d4c79c9c8b9", // Enter your WalletConnect Project ID here
   wallets: [
     ...wallets,
     {
