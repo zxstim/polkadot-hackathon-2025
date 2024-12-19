@@ -8,6 +8,7 @@ import {
   createConfig,
   http,
   useWriteContract,
+  useReadContracts,
   usePublicClient,
   useAccount
 } from "wagmi";
@@ -105,31 +106,25 @@ export default function WriteContract() {
 
   const USDC_CONTRACT_ADDRESS = "0xc8576Fb6De558b313afe0302B3fedc6F6447BbEE";
 
-  const [decimals, setDecimals] = useState<number | undefined>(undefined);
-  const [maxBalance, setMaxBalance] = useState<bigint | undefined>(undefined);
+  // useReadContracts hook to read contract
+  const { 
+    data
+  } = useReadContracts({ 
+    contracts: [{ 
+      address: USDC_CONTRACT_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [address ? address : account.address],
+    }, { 
+      address: USDC_CONTRACT_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'decimals',
+    }],
+    config: address ? localConfig : config,
+  })
 
-  useEffect(() => {
-    if (publicClient) {
-      const fetchData = async () => {
-        const decimalsResult = await publicClient.readContract({
-          address: USDC_CONTRACT_ADDRESS,
-          abi: erc20Abi,
-          functionName: 'decimals',
-        }) as number;
-
-        const maxBalanceResult = await publicClient.readContract({
-          address: USDC_CONTRACT_ADDRESS,
-          abi: erc20Abi,
-          functionName: 'balanceOf',
-          args: [account.address],
-        }) as bigint;
-
-        setDecimals(decimalsResult);
-        setMaxBalance(maxBalanceResult);
-      };
-      fetchData();
-    }
-  }, [publicClient, account.address]);
+  const maxBalance = data?.[0]?.result as bigint | undefined;
+  const decimals = data?.[1]?.result as number | undefined;
 
   // form schema for sending transaction
   const formSchema = z.object({

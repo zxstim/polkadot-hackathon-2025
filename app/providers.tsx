@@ -37,6 +37,12 @@ export const westendAssetHub = defineChain({
   blockExplorers: {
     default: { name: 'Explorer', url: 'https://assethub-westend.subscan.io' },
   },
+  contracts: {
+    multicall3: {
+      address: '0x5545dec97cb957e83d3e6a1e82fabfacf9764cf1',
+      blockCreated: 10174702,
+    },
+  },
 })
 
 const { wallets } = getDefaultWallets();
