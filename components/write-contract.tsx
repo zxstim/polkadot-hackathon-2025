@@ -91,7 +91,7 @@ const localConfig = createConfig({
   ssr: true,
 });
 
-export default function SendTransaction() {
+export default function WriteContract() {
 
   // useConfig hook to get config
   const config = useConfig();
