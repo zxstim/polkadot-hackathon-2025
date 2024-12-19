@@ -9,7 +9,6 @@ import {
   http,
   useWriteContract,
   useReadContracts,
-  usePublicClient,
   useAccount
 } from "wagmi";
 import { parseUnits, formatUnits, isAddress, Address } from "viem";
@@ -79,9 +78,6 @@ export default function WriteContract() {
 
   // useConfig hook to get config
   const config = useConfig();
-
-  // usePublicClient hook to get public client
-  const publicClient = usePublicClient();
 
   // useAccount hook to get account
   const account = useAccount();
