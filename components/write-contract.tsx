@@ -108,7 +108,8 @@ export default function WriteContract() {
 
   // useReadContracts hook to read contract
   const { 
-    data
+    data,
+    refetch
   } = useReadContracts({ 
     contracts: [{ 
       address: USDC_CONTRACT_ADDRESS,
@@ -210,6 +211,13 @@ export default function WriteContract() {
       config: address ? localConfig : config,
     });
 
+  // when isConfirmed, refetch the balance of the address
+  useEffect(() => {
+    if (isConfirmed) {
+      refetch();
+    }
+  }, [isConfirmed]);
+
 
   return (
     <div className="flex flex-col gap-4 w-[320px] md:w-[425px]">
@@ -237,7 +245,7 @@ export default function WriteContract() {
                 <div className="flex flex-row gap-2 items-center justify-between">
                   <FormLabel>Amount</FormLabel>
                   <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
-                    <WalletMinimal className="w-4 h-4" /> {maxBalance ? formatUnits(maxBalance as bigint, 18) : <Skeleton className="w-[80px] h-4" />} USDC
+                    <WalletMinimal className="w-4 h-4" /> {maxBalance ? formatUnits(maxBalance as bigint, decimals as number) : <Skeleton className="w-[80px] h-4" />} USDC
                   </div>
                 </div>
                 <FormControl>
