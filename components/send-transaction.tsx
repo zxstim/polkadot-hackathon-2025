@@ -4,10 +4,20 @@ import { useState, useEffect } from "react";
 import {
   type BaseError,
   useSendTransaction,
+  useBalance,
+  useEstimateFeesPerGas,
+  useEstimateGas,
+  useEstimateMaxPriorityFeePerGas,
   useWaitForTransactionReceipt,
-  useConfig
+  useConfig,
+  createConfig,
+  http
 } from "wagmi";
-import { parseEther, isAddress, Address } from "viem";
+import { parseEther, parseUnits, parseGwei, formatEther, isAddress, Address, Account } from "viem";
+import {
+  kaia,
+  kairos
+} from 'wagmi/chains';
 import {
   Ban,
   ExternalLink,
@@ -54,9 +64,13 @@ import {
 } from "@/components/ui/drawer";
 import { truncateHash } from "@/lib/utils";
 import CopyButton from "@/components/copy-button";
+import { getSigpassWallet } from "@/lib/sigpass";
+import { westendAssetHub } from "@/app/providers";
 
 
+// form schema for sending transaction
 const formSchema = z.object({
+  // address is a required field
   address: z
     .string()
     .min(2)
@@ -64,6 +78,7 @@ const formSchema = z.object({
     .refine((val) => val === "" || isAddress(val), {
       message: "Invalid Ethereum address format",
     }) as z.ZodType<Address | "">,
+  // amount is a required field
   amount: z
     .string()
     .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
@@ -74,32 +89,72 @@ const formSchema = z.object({
     }),
 });
 
+const localConfig = createConfig({
+  chains: [westendAssetHub],
+  transports: {
+    [westendAssetHub.id]: http(),
+  },
+  ssr: true,
+});
+
 export default function SendTransaction() {
+
+  // useConfig hook to get config
+  const config = useConfig();
+
+  // useMediaQuery hook to check if the screen is desktop
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  // useState hook to open/close dialog/drawer
+  const [open, setOpen] = useState(false);
+
+  // get the owner address from session storage
+  const [ownerAddress, setOwnerAddress] = useState<Address | null>(null);
+
+  // useSendTransaction hook to send transaction
   const {
     data: hash,
     error,
     isPending,
-    sendTransaction,
-  } = useSendTransaction();
-  const config = useConfig()
-  const isDesktop = useMediaQuery("(min-width: 768px)");
-  const [open, setOpen] = useState(false);
+    sendTransactionAsync,
+  } = useSendTransaction({
+    config: ownerAddress ? localConfig : config,
+  });
+
+  useEffect(() => {
+    const ownerAddress = sessionStorage.getItem('SIGPASS_ADDRESS');
+    if (ownerAddress) {
+      setOwnerAddress(ownerAddress as Address);
+    }
+  }, []);
+
   // 1. Define your form.
   const form = useForm<z.infer<typeof formSchema>>({
+    // resolver is zodResolver
     resolver: zodResolver(formSchema),
+    // default values for address and amount
     defaultValues: {
       address: "",
       amount: "",
     },
   });
 
+
   // 2. Define a submit handler.
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!values.address) return;
-    sendTransaction({
-      to: values.address as Address,
-      value: parseEther(values.amount),
-    });
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (ownerAddress) {
+      sendTransactionAsync({
+        account: await getSigpassWallet(),
+        to: values.address as Address,
+        value: parseEther(values.amount),
+        chainId: westendAssetHub.id,
+      });
+    } else {
+      // Fallback to connected wallet
+      sendTransactionAsync({
+        to: values.address as Address,
+        value: parseEther(values.amount),
+      });
+    }
   }
 
   // Watch for transaction hash and open dialog/drawer when received
@@ -109,10 +164,14 @@ export default function SendTransaction() {
     }
   }, [hash]);
 
+
+  // useWaitForTransactionReceipt hook to wait for transaction receipt
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
     useWaitForTransactionReceipt({
       hash,
+      config: ownerAddress ? localConfig : config,
     });
+
 
   return (
     <div className="flex flex-col gap-4 w-[320px] md:w-[425px]">

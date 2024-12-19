@@ -54,10 +54,20 @@ export default function SigpassKit() {
     setWebAuthnSupport(support);
   }, []);
 
+
+  // get the owner address from session storage
+  useEffect(() => {
+    const ownerAddress = sessionStorage.getItem('SIGPASS_ADDRESS');
+    if (ownerAddress) {
+      setAddress(ownerAddress as Address);
+    }
+  }, []);
+
   async function getWallet() {
     const account = await getSigpassWallet();
     if (account) {
       setAddress(account.address);
+      sessionStorage.setItem('SIGPASS_ADDRESS', account.address);
     } else {
       console.error('Issue getting wallet');
     }
@@ -89,6 +99,7 @@ export default function SigpassKit() {
   function disconnect() {
     setAddress(undefined);
     setOpen(false);
+    sessionStorage.removeItem('SIGPASS_ADDRESS');
   }
 
 
