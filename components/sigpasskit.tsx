@@ -29,6 +29,11 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer"
 import Image from 'next/image';
+import { useAtom } from 'jotai'
+import { atomWithStorage, RESET } from 'jotai/utils'
+
+// Set the string key and the initial value
+export const addressAtom = atomWithStorage<Address | undefined>('SIGPASS_ADDRESS', undefined)
 
 
 export default function SigpassKit() {
@@ -37,7 +42,7 @@ export default function SigpassKit() {
   const [webAuthnSupport, setWebAuthnSupport] = useState<boolean>(false);
   const isDesktop = useMediaQuery("(min-width: 768px)")
   const account = useAccount();
-  const [address, setAddress] = useState<Address | undefined>(undefined);
+  const [address, setAddress] = useAtom(addressAtom);
   const [isCopied, setIsCopied] = useState(false);
 
 
@@ -55,19 +60,10 @@ export default function SigpassKit() {
   }, []);
 
 
-  // get the owner address from session storage
-  useEffect(() => {
-    const ownerAddress = sessionStorage.getItem('SIGPASS_ADDRESS');
-    if (ownerAddress) {
-      setAddress(ownerAddress as Address);
-    }
-  }, []);
-
   async function getWallet() {
     const account = await getSigpassWallet();
     if (account) {
       setAddress(account.address);
-      sessionStorage.setItem('SIGPASS_ADDRESS', account.address);
     } else {
       console.error('Issue getting wallet');
     }
@@ -99,7 +95,7 @@ export default function SigpassKit() {
   function disconnect() {
     setAddress(undefined);
     setOpen(false);
-    sessionStorage.removeItem('SIGPASS_ADDRESS');
+    setAddress(RESET);
   }
 
 

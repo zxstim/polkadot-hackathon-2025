@@ -66,6 +66,8 @@ import { truncateHash } from "@/lib/utils";
 import CopyButton from "@/components/copy-button";
 import { getSigpassWallet } from "@/lib/sigpass";
 import { westendAssetHub } from "@/app/providers";
+import { useAtomValue } from 'jotai'
+import { addressAtom } from '@/components/sigpasskit'
 
 
 // form schema for sending transaction
@@ -107,8 +109,8 @@ export default function SendTransaction() {
   // useState hook to open/close dialog/drawer
   const [open, setOpen] = useState(false);
 
-  // get the owner address from session storage
-  const [ownerAddress, setOwnerAddress] = useState<Address | null>(null);
+  // get the address from session storage
+  const address = useAtomValue(addressAtom)
 
   // useSendTransaction hook to send transaction
   const {
@@ -117,15 +119,9 @@ export default function SendTransaction() {
     isPending,
     sendTransactionAsync,
   } = useSendTransaction({
-    config: ownerAddress ? localConfig : config,
+    config: address ? localConfig : config,
   });
 
-  useEffect(() => {
-    const ownerAddress = sessionStorage.getItem('SIGPASS_ADDRESS');
-    if (ownerAddress) {
-      setOwnerAddress(ownerAddress as Address);
-    }
-  }, []);
 
   // 1. Define your form.
   const form = useForm<z.infer<typeof formSchema>>({
@@ -141,7 +137,7 @@ export default function SendTransaction() {
 
   // 2. Define a submit handler.
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (ownerAddress) {
+    if (address) {
       sendTransactionAsync({
         account: await getSigpassWallet(),
         to: values.address as Address,
@@ -169,7 +165,7 @@ export default function SendTransaction() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
     useWaitForTransactionReceipt({
       hash,
-      config: ownerAddress ? localConfig : config,
+      config: address ? localConfig : config,
     });
 
 
