@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -12,28 +13,23 @@ export default function Home() {
           height={38}
           priority
         />
+        <p>Get started by checking out the demos</p>
         <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
           <li className="mb-2">
-            Get started by checking out the demo{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              components/
-            </code>
-            .
+            <Link href="/wallet">Wallet</Link>
           </li>
           <li className="mb-2">
-            Get started by editing components in{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              components/
-            </code>
-            .
+            <Link href="/send-transaction">Send transaction</Link>
           </li>
-          <li>Save and see your changes instantly.</li>
+          <li className="mb-2">
+            <Link href="/write-contract">Write contract</Link>
+          </li>
         </ol>
 
         <div className="flex gap-4 items-center flex-col sm:flex-row">
           <a
             className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            href="https://github.com/buildstationorg/dotui"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -48,7 +44,7 @@ export default function Home() {
           </a>
           <a
             className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://github.com/buildstationorg/dotui/wiki"
+            href="https://github.com/buildstationorg/dotui/docs"
             target="_blank"
             rel="noopener noreferrer"
           >

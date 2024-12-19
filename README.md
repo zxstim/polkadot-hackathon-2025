@@ -1,7 +1,7 @@
 # DOT UI Kit
 
-This is a UI kit for the Polkadot ecosystem. It is built with Tailwind CSS and Lucide icons.
+This is a UI kit for the Polkadot ecosystem. It is built with [ShadCN UI](https://ui.shadcn.com/), [Tailwind CSS](https://tailwindcss.com/) and [Lucide icons](https://lucide.dev/).
 
 ## Getting started
 
-See the [getting started](docs/getting-started.md) guide for more information.
+
