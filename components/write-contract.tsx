@@ -212,7 +212,7 @@ export default function WriteContract() {
     if (isConfirmed) {
       refetch();
     }
-  }, [isConfirmed]);
+  }, [isConfirmed, refetch]);
 
 
   return (
