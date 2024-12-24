@@ -1,6 +1,6 @@
 # DOT UI Kit
 
-This is a UI kit for the Polkadot ecosystem. The technical stack is:
+This is an opinionated UI scaffolding kit for the Polkadot ecosystem (starting with Asset Hub). The technical stack is:
 - [Next.js](https://nextjs.org/)
 - [Tailwind CSS](https://tailwindcss.com/)
 - [Lucide icons](https://lucide.dev/)
