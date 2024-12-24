@@ -8,8 +8,9 @@ import {
   useWriteContract,
   useReadContracts,
   useAccount,
+  useBalance,
 } from "wagmi";
-import { parseUnits, formatUnits, isAddress, Address } from "viem";
+import { parseUnits, formatUnits, formatEther } from "viem";
 import {
   Ban,
   ExternalLink,
@@ -19,6 +20,7 @@ import {
   LoaderCircle,
   CircleCheck,
   WalletMinimal,
+  HandCoins,
 } from "lucide-react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,6 +36,15 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import {
@@ -90,39 +101,32 @@ export default function MintRedeemLstBifrost() {
     config: address ? localConfig : config,
   });
 
-  const USDC_CONTRACT_ADDRESS = "0xc8576Fb6De558b313afe0302B3fedc6F6447BbEE";
+  const XCDOT_CONTRACT_ADDRESS = "0xFfFFfFff1FcaCBd218EDc0EbA20Fc2308C778080";
+  const XCASTR_CONTRACT_ADDRESS = "0xFfFFFfffA893AD19e540E172C10d78D4d479B5Cf";
+  const XCBNC_CONTRACT_ADDRESS = "0xFFffffFf7cC06abdF7201b350A1265c62C8601d2";
+  const BIFROST_SLPX_CONTRACT_ADDRESS =
+    "0xF1d4797E51a4640a76769A50b57abE7479ADd3d8";
 
-  // useReadContracts hook to read contract
-  const { data, refetch } = useReadContracts({
-    contracts: [
-      {
-        address: USDC_CONTRACT_ADDRESS,
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [address ? address : account.address],
-      },
-      {
-        address: USDC_CONTRACT_ADDRESS,
-        abi: erc20Abi,
-        functionName: "decimals",
-      },
-    ],
-    config: address ? localConfig : config,
-  });
-
-  const maxBalance = data?.[0]?.result as bigint | undefined;
-  const decimals = data?.[1]?.result as number | undefined;
+  // Get the contract address based on selected token
+  const getContractAddress = (token: string) => {
+    switch (token) {
+      case "xcdot":
+        return XCDOT_CONTRACT_ADDRESS;
+      case "xcastr":
+        return XCASTR_CONTRACT_ADDRESS;
+      case "xcbnc":
+        return XCBNC_CONTRACT_ADDRESS;
+      default:
+        return XCDOT_CONTRACT_ADDRESS;
+    }
+  };
 
   // form schema for sending transaction
   const formSchema = z.object({
-    // address is a required field
-    address: z
-      .string()
-      .min(2)
-      .max(50)
-      .refine((val) => val === "" || isAddress(val), {
-        message: "Invalid address format",
-      }) as z.ZodType<Address | "">,
+    // token is a required field selected from a list
+    token: z.enum(["xcdot", "glmr", "xcastr", "xcbnc"], {
+      required_error: "Please select a token",
+    }),
     // amount is a required field
     amount: z
       .string()
@@ -152,40 +156,132 @@ export default function MintRedeemLstBifrost() {
     resolver: zodResolver(formSchema),
     // default values for address and amount
     defaultValues: {
-      address: "",
+      token: "xcdot",
       amount: "",
     },
   });
 
-  // 2. Define a submit handler.
+
+  // Extract the token value using watch instead of getValues
+  const selectedToken = form.watch("token");
+
+  // useReadContracts hook to read contract
+  const { data, refetch } = useReadContracts({
+    contracts: [
+      {
+        address: getContractAddress(selectedToken),
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [address ? address : account.address],
+      },
+      {
+        address: getContractAddress(selectedToken),
+        abi: erc20Abi,
+        functionName: "symbol",
+      },
+      {
+        address: getContractAddress(selectedToken),
+        abi: erc20Abi,
+        functionName: "decimals",
+      },
+      {
+        address: getContractAddress(selectedToken),
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [
+          address ? address : account.address,
+          BIFROST_SLPX_CONTRACT_ADDRESS,
+        ],
+      },
+    ],
+    query: {
+      enabled: selectedToken !== "glmr",
+    },
+    config: address ? localConfig : config,
+  });
+
+
+  // extract the data from the read contracts hook
+  const maxBalance = data?.[0]?.result as bigint | undefined;
+  const symbol = data?.[1]?.result as string | undefined;
+  const decimals = data?.[2]?.result as number | undefined;
+  const mintAllowance = data?.[3]?.result as bigint | undefined;
+
+  // extract the amount value from the form
+  const amount = form.watch("amount");
+
+  // check if the amount is greater than the mint allowance
+  const needsApprove = mintAllowance !== undefined && 
+    amount ? 
+    mintAllowance <= parseUnits(amount, decimals || 18) : 
+    false;
+
+
+      // 2. Define a submit handler.
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (address) {
+    // if the user has a sigpass wallet, and the token is not GLMR, approve the token
+    if (address && selectedToken !== "glmr") {
+      if (needsApprove) {
+        writeContractAsync({
+          account: await getSigpassWallet(),
+          address: getContractAddress(values.token),
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [BIFROST_SLPX_CONTRACT_ADDRESS, parseUnits(values.amount, decimals as number)],
+        });
+      }
+    }
+
+    // if the user does not have a sigpass wallet, and the token is not GLMR, mint the token
+    if (!address && selectedToken !== "glmr") {
       writeContractAsync({
-        account: await getSigpassWallet(),
-        address: USDC_CONTRACT_ADDRESS,
+        address: getContractAddress(values.token),
         abi: erc20Abi,
         functionName: "transfer",
         args: [
-          values.address as Address,
+          BIFROST_SLPX_CONTRACT_ADDRESS,
           parseUnits(values.amount, decimals as number),
         ],
-        chainId: westendAssetHub.id,
-      });
-    } else {
-      // Fallback to connected wallet
-      console.log(decimals);
-      writeContractAsync({
-        address: USDC_CONTRACT_ADDRESS,
-        abi: erc20Abi,
-        functionName: "transfer",
-        args: [
-          values.address as Address,
-          parseUnits(values.amount, decimals as number),
-        ],
-        chainId: westendAssetHub.id,
       });
     }
+
+    
+    // if (address) {
+    //   writeContractAsync({
+    //     account: await getSigpassWallet(),
+    //     address: USDC_CONTRACT_ADDRESS,
+    //     abi: erc20Abi,
+    //     functionName: "transfer",
+    //     args: [
+    //       values.address as Address,
+    //       parseUnits(values.amount, decimals as number),
+    //     ],
+    //     chainId: westendAssetHub.id,
+    //   });
+    // } else {
+    //   // Fallback to connected wallet
+    //   console.log(decimals);
+    //   writeContractAsync({
+    //     address: USDC_CONTRACT_ADDRESS,
+    //     abi: erc20Abi,
+    //     functionName: "transfer",
+    //     args: [
+    //       values.address as Address,
+    //       parseUnits(values.amount, decimals as number),
+    //     ],
+    //     chainId: westendAssetHub.id,
+    //   });
+    // }
   }
+
+  // Add useBalance hook for GLMR
+  const { data: glmrBalance } = useBalance({
+    address: address ? address : account.address,
+    query: {
+      enabled: selectedToken === "glmr",
+    },
+    config: address ? localConfig : config,
+  });
 
   // Watch for transaction hash and open dialog/drawer when received
   useEffect(() => {
@@ -209,7 +305,7 @@ export default function MintRedeemLstBifrost() {
   }, [isConfirmed, refetch]);
 
   return (
-    <Tabs defaultValue="account" className="w-[320px] md:w-[425px]">
+    <Tabs defaultValue="mint" className="w-[320px] md:w-[425px]">
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="mint">Mint</TabsTrigger>
         <TabsTrigger value="redeem">Redeem</TabsTrigger>
@@ -220,16 +316,30 @@ export default function MintRedeemLstBifrost() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <FormField
                 control={form.control}
-                name="address"
+                name="token"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Receiving Address</FormLabel>
+                    <FormLabel>Token</FormLabel>
                     <FormControl>
-                      <Input placeholder="0xA0Cf…251e" {...field} />
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a token" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Tokens</SelectLabel>
+                            <SelectItem value="xcdot">xcDOT</SelectItem>
+                            <SelectItem value="glmr">GLMR</SelectItem>
+                            <SelectItem value="xcastr">xcASTR</SelectItem>
+                            <SelectItem value="xcbnc">xcBNC</SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
                     </FormControl>
-                    <FormDescription>
-                      The address to send USDC to
-                    </FormDescription>
+                    <FormDescription>The token to mint</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -243,12 +353,28 @@ export default function MintRedeemLstBifrost() {
                       <FormLabel>Amount</FormLabel>
                       <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
                         <WalletMinimal className="w-4 h-4" />{" "}
-                        {maxBalance ? (
-                          formatUnits(maxBalance as bigint, decimals as number)
+                        {selectedToken === "glmr" ? (
+                          glmrBalance ? (
+                            formatEther(glmrBalance.value)
+                          ) : (
+                            <Skeleton className="w-[80px] h-4" />
+                          )
                         ) : (
-                          <Skeleton className="w-[80px] h-4" />
+                          maxBalance !== undefined ? (
+                            formatUnits(maxBalance as bigint, decimals as number)
+                          ) : (
+                            <Skeleton className="w-[80px] h-4" />
+                          )
                         )}{" "}
-                        USDC
+                        {selectedToken === "glmr" ? (
+                          "GLMR"
+                        ) : (
+                          symbol ? (
+                            symbol
+                          ) : (
+                            <Skeleton className="w-[40px] h-4" />
+                          )
+                        )}
                       </div>
                     </div>
                     <FormControl>
@@ -271,22 +397,87 @@ export default function MintRedeemLstBifrost() {
                       )}
                     </FormControl>
                     <FormDescription>
-                      The amount of USDC to send
+                      The amount of {selectedToken === "glmr" ? "GLMR" : symbol} to mint
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              {isPending ? (
-                <Button type="submit" disabled className="w-full">
-                  <LoaderCircle className="w-4 h-4 animate-spin" /> Confirm in
-                  wallet...
-                </Button>
-              ) : (
-                <Button type="submit" className="w-full">
-                  Send
-                </Button>
-              )}
+              <div className="flex flex-row gap-2 items-center justify-between">
+                <h2>Token allowance</h2>
+                <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
+                  <HandCoins className="w-4 h-4" />{" "}
+                  {selectedToken === "glmr" ? (
+                    glmrBalance ? (
+                      formatEther(glmrBalance.value)
+                    ) : (
+                      <Skeleton className="w-[80px] h-4" />
+                    )
+                  ) : (
+                    mintAllowance !== undefined ? (
+                      formatUnits(mintAllowance as bigint, decimals as number)
+                    ) : (
+                      <Skeleton className="w-[80px] h-4" />
+                    )
+                  )}{" "}
+                  {selectedToken === "glmr" ? (
+                    "GLMR"
+                  ) : (
+                    symbol ? (
+                      symbol
+                    ) : (
+                      <Skeleton className="w-[40px] h-4" />
+                    )
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-row gap-2 items-center justify-between">
+                <h2>You are about to mint this token</h2>
+                <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
+                  {
+                    selectedToken === "glmr" ? (
+                      "xcvGLMR"
+                    ) : selectedToken === "xcdot" ? (
+                      "xcvDOT"
+                    ) : selectedToken === "xcastr" ? (
+                      "xcvASTR"
+                    ) : selectedToken === "xcbnc" ? (
+                      "xcvBNC"
+                    ) : (
+                      <Skeleton className="w-[40px] h-4" />
+                    )
+                  }
+                </div>
+              </div>
+              <div className="flex flex-row gap-2 items-center justify-between">
+                {
+                  isPending ? (
+                    <Button type="submit" disabled className="w-full">
+                      <LoaderCircle className="w-4 h-4 animate-spin" /> Confirm in
+                      wallet...
+                    </Button>
+                  ) : needsApprove ? (
+                    <Button type="submit" className="w-full">Approve</Button>
+                  ) : (
+                    <Button disabled className="w-full">Approve</Button>
+                  )
+                }
+                {isPending ? (
+                  <Button type="submit" disabled className="w-full">
+                    <LoaderCircle className="w-4 h-4 animate-spin" /> Confirm in
+                    wallet...
+                  </Button>
+                ) : needsApprove ? (
+                  <Button disabled className="w-full">
+                    Send
+                  </Button>
+                ) : (
+                  <Button type="submit" className="w-full">
+                    Send
+                  </Button>
+                )}
+              </div>
+
             </form>
           </Form>
           {
@@ -1258,6 +1449,125 @@ const erc20Abi = [
     inputs: [],
     name: "unpause",
     outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+];
+
+const xcdotAbi = [
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "owner",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "spender",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
+    ],
+    name: "Approval",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "from", type: "address" },
+      { indexed: true, internalType: "address", name: "to", type: "address" },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
+    ],
+    name: "Transfer",
+    type: "event",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "owner", type: "address" },
+      { internalType: "address", name: "spender", type: "address" },
+    ],
+    name: "allowance",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "spender", type: "address" },
+      { internalType: "uint256", name: "value", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "who", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "decimals",
+    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "name",
+    outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "symbol",
+    outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "totalSupply",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "to", type: "address" },
+      { internalType: "uint256", name: "value", type: "uint256" },
+    ],
+    name: "transfer",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "from", type: "address" },
+      { internalType: "address", name: "to", type: "address" },
+      { internalType: "uint256", name: "value", type: "uint256" },
+    ],
+    name: "transferFrom",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
     stateMutability: "nonpayable",
     type: "function",
   },
