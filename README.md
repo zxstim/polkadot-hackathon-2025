@@ -1,6 +1,18 @@
 # DOT UI Kit
 
-This is a UI kit for the Polkadot ecosystem. It is built with [ShadCN UI](https://ui.shadcn.com/), [Tailwind CSS](https://tailwindcss.com/) and [Lucide icons](https://lucide.dev/).
+This is a UI kit for the Polkadot ecosystem. The technical stack is:
+- [Next.js](https://nextjs.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [Lucide icons](https://lucide.dev/)
+- [ShadCN UI](https://ui.shadcn.com/)
+- [RainbowKit](https://www.rainbowkit.com/)
+- [Wagmi](https://wagmi.sh/)
+- [Viem](https://viem.sh/)
+- [Jotai](https://jotai.org/)
+- [Tanstack React Query](https://tanstack.com/query)
+- [Vaul](https://vaul.fun/)
+- [Zod](https://zod.dev/)
+- [React Hook Form](https://react-hook-form.com/)
 
 ## Getting started
 
