@@ -5,9 +5,7 @@ import {
   type BaseError,
   useSendTransaction,
   useWaitForTransactionReceipt,
-  useConfig,
-  createConfig,
-  http
+  useConfig
 } from "wagmi";
 import { parseEther, isAddress, Address } from "viem";
 import {
@@ -58,9 +56,9 @@ import { truncateHash } from "@/lib/utils";
 import CopyButton from "@/components/copy-button";
 import { getSigpassWallet } from "@/lib/sigpass";
 import { westendAssetHub } from "@/app/providers";
-import { useAtomValue } from 'jotai'
-import { addressAtom } from '@/components/sigpasskit'
-
+import { useAtomValue } from 'jotai';
+import { addressAtom } from '@/components/sigpasskit';
+import { localConfig } from '@/app/providers';
 
 // form schema for sending transaction
 const formSchema = z.object({
@@ -81,14 +79,6 @@ const formSchema = z.object({
     .refine((val) => /^\d*\.?\d{0,18}$/.test(val), {
       message: "Amount cannot have more than 18 decimal places",
     }),
-});
-
-const localConfig = createConfig({
-  chains: [westendAssetHub],
-  transports: {
-    [westendAssetHub.id]: http(),
-  },
-  ssr: true,
 });
 
 export default function SendTransaction() {

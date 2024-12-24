@@ -65,7 +65,7 @@ import { Skeleton } from "./ui/skeleton";
 import { localConfig } from "@/app/providers";
 
 
-export default function WriteContract() {
+export default function MintRedeemLstBifrost() {
 
   // useConfig hook to get config
   const config = useConfig();
