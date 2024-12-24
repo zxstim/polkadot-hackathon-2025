@@ -7,7 +7,7 @@ import {
   useConfig,
   useWriteContract,
   useReadContracts,
-  useAccount
+  useAccount,
 } from "wagmi";
 import { parseUnits, formatUnits, isAddress, Address } from "viem";
 import {
@@ -18,7 +18,7 @@ import {
   Hash,
   LoaderCircle,
   CircleCheck,
-  WalletMinimal
+  WalletMinimal,
 } from "lucide-react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +33,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import {
@@ -59,14 +60,12 @@ import { truncateHash } from "@/lib/utils";
 import CopyButton from "@/components/copy-button";
 import { getSigpassWallet } from "@/lib/sigpass";
 import { westendAssetHub } from "@/app/providers";
-import { useAtomValue } from 'jotai'
-import { addressAtom } from '@/components/sigpasskit'
+import { useAtomValue } from "jotai";
+import { addressAtom } from "@/components/sigpasskit";
 import { Skeleton } from "./ui/skeleton";
 import { localConfig } from "@/app/providers";
 
-
 export default function MintRedeemLstBifrost() {
-
   // useConfig hook to get config
   const config = useConfig();
 
@@ -79,37 +78,37 @@ export default function MintRedeemLstBifrost() {
   const [open, setOpen] = useState(false);
 
   // get the address from session storage
-  const address = useAtomValue(addressAtom)
+  const address = useAtomValue(addressAtom);
 
   // useWriteContract hook to write contract
   const {
     data: hash,
     error,
     isPending,
-    writeContractAsync
+    writeContractAsync,
   } = useWriteContract({
     config: address ? localConfig : config,
-  })
+  });
 
   const USDC_CONTRACT_ADDRESS = "0xc8576Fb6De558b313afe0302B3fedc6F6447BbEE";
 
   // useReadContracts hook to read contract
-  const { 
-    data,
-    refetch
-  } = useReadContracts({ 
-    contracts: [{ 
-      address: USDC_CONTRACT_ADDRESS,
-      abi: erc20Abi,
-      functionName: 'balanceOf',
-      args: [address ? address : account.address],
-    }, { 
-      address: USDC_CONTRACT_ADDRESS,
-      abi: erc20Abi,
-      functionName: 'decimals',
-    }],
+  const { data, refetch } = useReadContracts({
+    contracts: [
+      {
+        address: USDC_CONTRACT_ADDRESS,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [address ? address : account.address],
+      },
+      {
+        address: USDC_CONTRACT_ADDRESS,
+        abi: erc20Abi,
+        functionName: "decimals",
+      },
+    ],
     config: address ? localConfig : config,
-  })
+  });
 
   const maxBalance = data?.[0]?.result as bigint | undefined;
   const decimals = data?.[1]?.result as number | undefined;
@@ -135,7 +134,7 @@ export default function MintRedeemLstBifrost() {
       })
       .superRefine((val, ctx) => {
         if (!maxBalance || !decimals) return;
-        
+
         const inputAmount = parseUnits(val, decimals as number);
 
         if (inputAmount > (maxBalance as bigint)) {
@@ -158,7 +157,6 @@ export default function MintRedeemLstBifrost() {
     },
   });
 
-
   // 2. Define a submit handler.
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (address) {
@@ -166,8 +164,11 @@ export default function MintRedeemLstBifrost() {
         account: await getSigpassWallet(),
         address: USDC_CONTRACT_ADDRESS,
         abi: erc20Abi,
-        functionName: 'transfer',
-        args: [values.address as Address, parseUnits(values.amount, decimals as number)],
+        functionName: "transfer",
+        args: [
+          values.address as Address,
+          parseUnits(values.amount, decimals as number),
+        ],
         chainId: westendAssetHub.id,
       });
     } else {
@@ -176,8 +177,11 @@ export default function MintRedeemLstBifrost() {
       writeContractAsync({
         address: USDC_CONTRACT_ADDRESS,
         abi: erc20Abi,
-        functionName: 'transfer',
-        args: [values.address as Address, parseUnits(values.amount, decimals as number)],
+        functionName: "transfer",
+        args: [
+          values.address as Address,
+          parseUnits(values.amount, decimals as number),
+        ],
         chainId: westendAssetHub.id,
       });
     }
@@ -189,7 +193,6 @@ export default function MintRedeemLstBifrost() {
       setOpen(true);
     }
   }, [hash]);
-
 
   // useWaitForTransactionReceipt hook to wait for transaction receipt
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
@@ -205,1031 +208,1057 @@ export default function MintRedeemLstBifrost() {
     }
   }, [isConfirmed, refetch]);
 
-
   return (
-    <div className="flex flex-col gap-4 w-[320px] md:w-[425px]">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Receiving Address</FormLabel>
-                <FormControl>
-                  <Input placeholder="0xA0Cf…251e" {...field} />
-                </FormControl>
-                <FormDescription>The address to send USDC to</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="amount"
-            render={({ field }) => (
-              <FormItem>
-                <div className="flex flex-row gap-2 items-center justify-between">
-                  <FormLabel>Amount</FormLabel>
-                  <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
-                    <WalletMinimal className="w-4 h-4" /> {maxBalance ? formatUnits(maxBalance as bigint, decimals as number) : <Skeleton className="w-[80px] h-4" />} USDC
-                  </div>
-                </div>
-                <FormControl>
-                  {isDesktop ? (
-                    <Input
-                      type="number"
-                      placeholder="0.001"
-                      {...field}
-                      required
-                    />
-                  ) : (
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      pattern="[0-9]*[.]?[0-9]*"
-                      placeholder="0.001"
-                      {...field}
-                      required
-                    />
-                  )}
-                </FormControl>
-                <FormDescription>The amount of USDC to send</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+    <Tabs defaultValue="account" className="w-[320px] md:w-[425px]">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="mint">Mint</TabsTrigger>
+        <TabsTrigger value="redeem">Redeem</TabsTrigger>
+      </TabsList>
+      <TabsContent value="mint">
+        <div className="flex flex-col gap-4 w-[320px] md:w-[425px]">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Receiving Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="0xA0Cf…251e" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      The address to send USDC to
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex flex-row gap-2 items-center justify-between">
+                      <FormLabel>Amount</FormLabel>
+                      <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
+                        <WalletMinimal className="w-4 h-4" />{" "}
+                        {maxBalance ? (
+                          formatUnits(maxBalance as bigint, decimals as number)
+                        ) : (
+                          <Skeleton className="w-[80px] h-4" />
+                        )}{" "}
+                        USDC
+                      </div>
+                    </div>
+                    <FormControl>
+                      {isDesktop ? (
+                        <Input
+                          type="number"
+                          placeholder="0.001"
+                          {...field}
+                          required
+                        />
+                      ) : (
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          pattern="[0-9]*[.]?[0-9]*"
+                          placeholder="0.001"
+                          {...field}
+                          required
+                        />
+                      )}
+                    </FormControl>
+                    <FormDescription>
+                      The amount of USDC to send
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {isPending ? (
+                <Button type="submit" disabled className="w-full">
+                  <LoaderCircle className="w-4 h-4 animate-spin" /> Confirm in
+                  wallet...
+                </Button>
+              ) : (
+                <Button type="submit" className="w-full">
+                  Send
+                </Button>
+              )}
+            </form>
+          </Form>
           {
-            isPending ? (
-              <Button type="submit" disabled className="w-full">
-                <LoaderCircle className="w-4 h-4 animate-spin" /> Confirm in wallet...
-              </Button>
+            // Desktop would be using dialog
+            isDesktop ? (
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    Transaction status <ChevronDown />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Transaction status</DialogTitle>
+                  </DialogHeader>
+                  <DialogDescription>
+                    Follow the transaction status below.
+                  </DialogDescription>
+                  <div className="flex flex-col gap-2">
+                    {hash ? (
+                      <div className="flex flex-row gap-2 items-center">
+                        <Hash className="w-4 h-4" />
+                        Transaction Hash
+                        <a
+                          className="flex flex-row gap-2 items-center underline underline-offset-4"
+                          href={`${config.chains?.[0]?.blockExplorers?.default?.url}/tx/${hash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {truncateHash(hash)}
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                        <CopyButton copyText={hash} />
+                      </div>
+                    ) : (
+                      <div className="flex flex-row gap-2 items-center">
+                        <Hash className="w-4 h-4" />
+                        No transaction hash
+                      </div>
+                    )}
+                    {!isPending && !isConfirmed && !isConfirming && (
+                      <div className="flex flex-row gap-2 items-center">
+                        <Ban className="w-4 h-4" /> No transaction submitted
+                      </div>
+                    )}
+                    {isConfirming && (
+                      <div className="flex flex-row gap-2 items-center text-yellow-500">
+                        <LoaderCircle className="w-4 h-4 animate-spin" />{" "}
+                        Waiting for confirmation...
+                      </div>
+                    )}
+                    {isConfirmed && (
+                      <div className="flex flex-row gap-2 items-center text-green-500">
+                        <CircleCheck className="w-4 h-4" /> Transaction
+                        confirmed!
+                      </div>
+                    )}
+                    {error && (
+                      <div className="flex flex-row gap-2 items-center text-red-500">
+                        <X className="w-4 h-4" /> Error:{" "}
+                        {(error as BaseError).shortMessage || error.message}
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline">Close</Button>
+                    </DialogClose>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             ) : (
-              <Button type="submit" className="w-full">Send</Button>
+              // Mobile would be using drawer
+              <Drawer open={open} onOpenChange={setOpen}>
+                <DrawerTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    Transaction status <ChevronDown />
+                  </Button>
+                </DrawerTrigger>
+                <DrawerContent>
+                  <DrawerHeader>
+                    <DrawerTitle>Transaction status</DrawerTitle>
+                    <DrawerDescription>
+                      Follow the transaction status below.
+                    </DrawerDescription>
+                  </DrawerHeader>
+                  <div className="flex flex-col gap-2 p-4">
+                    {hash ? (
+                      <div className="flex flex-row gap-2 items-center">
+                        <Hash className="w-4 h-4" />
+                        Transaction Hash
+                        <a
+                          className="flex flex-row gap-2 items-center underline underline-offset-4"
+                          href={`${config.chains?.[0]?.blockExplorers?.default?.url}/tx/${hash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {truncateHash(hash)}
+                          <ExternalLink className="w-4 h-4" />
+                          <CopyButton copyText={hash} />
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="flex flex-row gap-2 items-center">
+                        <Hash className="w-4 h-4" />
+                        No transaction hash
+                      </div>
+                    )}
+                    {!isPending && !isConfirmed && !isConfirming && (
+                      <div className="flex flex-row gap-2 items-center">
+                        <Ban className="w-4 h-4" /> No transaction submitted
+                      </div>
+                    )}
+                    {isConfirming && (
+                      <div className="flex flex-row gap-2 items-center text-yellow-500">
+                        <LoaderCircle className="w-4 h-4 animate-spin" />{" "}
+                        Waiting for confirmation...
+                      </div>
+                    )}
+                    {isConfirmed && (
+                      <div className="flex flex-row gap-2 items-center text-green-500">
+                        <CircleCheck className="w-4 h-4" /> Transaction
+                        confirmed!
+                      </div>
+                    )}
+                    {error && (
+                      <div className="flex flex-row gap-2 items-center text-red-500">
+                        <X className="w-4 h-4" /> Error:{" "}
+                        {(error as BaseError).shortMessage || error.message}
+                      </div>
+                    )}
+                  </div>
+                  <DrawerFooter>
+                    <DrawerClose asChild>
+                      <Button variant="outline">Close</Button>
+                    </DrawerClose>
+                  </DrawerFooter>
+                </DrawerContent>
+              </Drawer>
             )
           }
-        </form>
-      </Form>
-      {
-        // Desktop would be using dialog
-        isDesktop ? (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="w-full">
-                Transaction status <ChevronDown />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Transaction status</DialogTitle>
-              </DialogHeader>
-              <DialogDescription>
-                Follow the transaction status below.
-              </DialogDescription>
-              <div className="flex flex-col gap-2">
-                {hash ? (
-                  <div className="flex flex-row gap-2 items-center">
-                    <Hash className="w-4 h-4" />
-                    Transaction Hash
-                    <a className="flex flex-row gap-2 items-center underline underline-offset-4" href={`${config.chains?.[0]?.blockExplorers?.default?.url}/tx/${hash}`} target="_blank" rel="noopener noreferrer">
-                      {truncateHash(hash)}
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                    <CopyButton copyText={hash} />
-                  </div>
-                ) : (
-                  <div className="flex flex-row gap-2 items-center">
-                    <Hash className="w-4 h-4" />
-                    No transaction hash
-                  </div>
-                )}
-                {
-                  !isPending && !isConfirmed && !isConfirming && (
-                    <div className="flex flex-row gap-2 items-center">
-                      <Ban className="w-4 h-4" /> No transaction submitted
-                    </div>
-                  )
-                }
-                {isConfirming && (
-                  <div className="flex flex-row gap-2 items-center text-yellow-500">
-                    <LoaderCircle className="w-4 h-4 animate-spin" /> Waiting
-                    for confirmation...
-                  </div>
-                )}
-                {isConfirmed && (
-                  <div className="flex flex-row gap-2 items-center text-green-500">
-                    <CircleCheck className="w-4 h-4" /> Transaction confirmed!
-                  </div>
-                )}
-                {error && (
-                  <div className="flex flex-row gap-2 items-center text-red-500">
-                    <X className="w-4 h-4" /> Error:{" "}
-                    {(error as BaseError).shortMessage || error.message}
-                  </div>
-                )}
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline">Close</Button>
-                </DialogClose>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        ) : (
-          // Mobile would be using drawer
-          <Drawer open={open} onOpenChange={setOpen}>
-            <DrawerTrigger asChild>
-              <Button variant="outline" className="w-full">
-                Transaction status <ChevronDown />
-              </Button>
-            </DrawerTrigger>
-            <DrawerContent>
-              <DrawerHeader>
-                <DrawerTitle>Transaction status</DrawerTitle>
-                <DrawerDescription>
-                  Follow the transaction status below.
-                </DrawerDescription>
-              </DrawerHeader>
-              <div className="flex flex-col gap-2 p-4">
-                {hash ? (
-                  <div className="flex flex-row gap-2 items-center">
-                    <Hash className="w-4 h-4" />
-                    Transaction Hash
-                    <a className="flex flex-row gap-2 items-center underline underline-offset-4" href={`${config.chains?.[0]?.blockExplorers?.default?.url}/tx/${hash}`} target="_blank" rel="noopener noreferrer">
-                      {truncateHash(hash)}
-                      <ExternalLink className="w-4 h-4" />
-                      <CopyButton copyText={hash} />
-                    </a>
-                  </div>
-                ) : (
-                  <div className="flex flex-row gap-2 items-center">
-                    <Hash className="w-4 h-4" />
-                    No transaction hash
-                  </div>
-                )}
-                {
-                  !isPending && !isConfirmed && !isConfirming && (
-                    <div className="flex flex-row gap-2 items-center">
-                      <Ban className="w-4 h-4" /> No transaction submitted
-                    </div>
-                  )
-                }
-                {isConfirming && (
-                  <div className="flex flex-row gap-2 items-center text-yellow-500">
-                    <LoaderCircle className="w-4 h-4 animate-spin" /> Waiting
-                    for confirmation...
-                  </div>
-                )}
-                {isConfirmed && (
-                  <div className="flex flex-row gap-2 items-center text-green-500">
-                    <CircleCheck className="w-4 h-4" /> Transaction confirmed!
-                  </div>
-                )}
-                {error && (
-                  <div className="flex flex-row gap-2 items-center text-red-500">
-                    <X className="w-4 h-4" /> Error:{" "}
-                    {(error as BaseError).shortMessage || error.message}
-                  </div>
-                )}
-              </div>
-              <DrawerFooter>
-                <DrawerClose asChild>
-                  <Button variant="outline">Close</Button>
-                </DrawerClose>
-              </DrawerFooter>
-            </DrawerContent>
-          </Drawer>
-        )
-      }
-    </div>
+        </div>
+      </TabsContent>
+      <TabsContent value="redeem">placeholder</TabsContent>
+    </Tabs>
   );
 }
 
-
 const erc20Abi = [
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "initialOwner",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "initialOwner",
+        type: "address",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
+    stateMutability: "nonpayable",
+    type: "constructor",
   },
   {
-    "inputs": [],
-    "name": "ECDSAInvalidSignature",
-    "type": "error"
+    inputs: [],
+    name: "ECDSAInvalidSignature",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "uint256",
-        "name": "length",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "length",
+        type: "uint256",
+      },
     ],
-    "name": "ECDSAInvalidSignatureLength",
-    "type": "error"
+    name: "ECDSAInvalidSignatureLength",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "s",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "s",
+        type: "bytes32",
+      },
     ],
-    "name": "ECDSAInvalidSignatureS",
-    "type": "error"
+    name: "ECDSAInvalidSignatureS",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
+        internalType: "address",
+        name: "spender",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "allowance",
-        "type": "uint256"
+        internalType: "uint256",
+        name: "allowance",
+        type: "uint256",
       },
       {
-        "internalType": "uint256",
-        "name": "needed",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "needed",
+        type: "uint256",
+      },
     ],
-    "name": "ERC20InsufficientAllowance",
-    "type": "error"
+    name: "ERC20InsufficientAllowance",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
+        internalType: "address",
+        name: "sender",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "balance",
-        "type": "uint256"
+        internalType: "uint256",
+        name: "balance",
+        type: "uint256",
       },
       {
-        "internalType": "uint256",
-        "name": "needed",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "needed",
+        type: "uint256",
+      },
     ],
-    "name": "ERC20InsufficientBalance",
-    "type": "error"
+    name: "ERC20InsufficientBalance",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "approver",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "approver",
+        type: "address",
+      },
     ],
-    "name": "ERC20InvalidApprover",
-    "type": "error"
+    name: "ERC20InvalidApprover",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "receiver",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "receiver",
+        type: "address",
+      },
     ],
-    "name": "ERC20InvalidReceiver",
-    "type": "error"
+    name: "ERC20InvalidReceiver",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
     ],
-    "name": "ERC20InvalidSender",
-    "type": "error"
+    name: "ERC20InvalidSender",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "spender",
+        type: "address",
+      },
     ],
-    "name": "ERC20InvalidSpender",
-    "type": "error"
+    name: "ERC20InvalidSpender",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "uint256",
-        "name": "deadline",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "deadline",
+        type: "uint256",
+      },
     ],
-    "name": "ERC2612ExpiredSignature",
-    "type": "error"
+    name: "ERC2612ExpiredSignature",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "signer",
-        "type": "address"
+        internalType: "address",
+        name: "signer",
+        type: "address",
       },
       {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "owner",
+        type: "address",
+      },
     ],
-    "name": "ERC2612InvalidSigner",
-    "type": "error"
+    name: "ERC2612InvalidSigner",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "uint256",
-        "name": "maxLoan",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "maxLoan",
+        type: "uint256",
+      },
     ],
-    "name": "ERC3156ExceededMaxLoan",
-    "type": "error"
+    name: "ERC3156ExceededMaxLoan",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "receiver",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "receiver",
+        type: "address",
+      },
     ],
-    "name": "ERC3156InvalidReceiver",
-    "type": "error"
+    name: "ERC3156InvalidReceiver",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "token",
+        type: "address",
+      },
     ],
-    "name": "ERC3156UnsupportedToken",
-    "type": "error"
+    name: "ERC3156UnsupportedToken",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "EnforcedPause",
-    "type": "error"
+    inputs: [],
+    name: "EnforcedPause",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "ExpectedPause",
-    "type": "error"
+    inputs: [],
+    name: "ExpectedPause",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
+        internalType: "address",
+        name: "account",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "currentNonce",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "currentNonce",
+        type: "uint256",
+      },
     ],
-    "name": "InvalidAccountNonce",
-    "type": "error"
+    name: "InvalidAccountNonce",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "InvalidShortString",
-    "type": "error"
+    inputs: [],
+    name: "InvalidShortString",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "owner",
+        type: "address",
+      },
     ],
-    "name": "OwnableInvalidOwner",
-    "type": "error"
+    name: "OwnableInvalidOwner",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
     ],
-    "name": "OwnableUnauthorizedAccount",
-    "type": "error"
+    name: "OwnableUnauthorizedAccount",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "string",
-        "name": "str",
-        "type": "string"
-      }
+        internalType: "string",
+        name: "str",
+        type: "string",
+      },
     ],
-    "name": "StringTooLong",
-    "type": "error"
+    name: "StringTooLong",
+    type: "error",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "owner",
+        type: "address",
       },
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "spender",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
+        indexed: false,
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
     ],
-    "name": "Approval",
-    "type": "event"
+    name: "Approval",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [],
-    "name": "EIP712DomainChanged",
-    "type": "event"
+    anonymous: false,
+    inputs: [],
+    name: "EIP712DomainChanged",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "previousOwner",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "previousOwner",
+        type: "address",
       },
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
+        indexed: true,
+        internalType: "address",
+        name: "newOwner",
+        type: "address",
+      },
     ],
-    "name": "OwnershipTransferred",
-    "type": "event"
+    name: "OwnershipTransferred",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": false,
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
+        indexed: false,
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
     ],
-    "name": "Paused",
-    "type": "event"
+    name: "Paused",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "from",
+        type: "address",
       },
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "to",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
+        indexed: false,
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
     ],
-    "name": "Transfer",
-    "type": "event"
+    name: "Transfer",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": false,
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
+        indexed: false,
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
     ],
-    "name": "Unpaused",
-    "type": "event"
+    name: "Unpaused",
+    type: "event",
   },
   {
-    "inputs": [],
-    "name": "DOMAIN_SEPARATOR",
-    "outputs": [
+    inputs: [],
+    name: "DOMAIN_SEPARATOR",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
+        internalType: "address",
+        name: "owner",
+        type: "address",
       },
       {
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "spender",
+        type: "address",
+      },
     ],
-    "name": "allowance",
-    "outputs": [
+    name: "allowance",
+    outputs: [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
+        internalType: "address",
+        name: "spender",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
     ],
-    "name": "approve",
-    "outputs": [
+    name: "approve",
+    outputs: [
       {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
     ],
-    "name": "balanceOf",
-    "outputs": [
+    name: "balanceOf",
+    outputs: [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
     ],
-    "name": "burn",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "burn",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
+        internalType: "address",
+        name: "account",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
     ],
-    "name": "burnFrom",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "burnFrom",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "decimals",
-    "outputs": [
+    inputs: [],
+    name: "decimals",
+    outputs: [
       {
-        "internalType": "uint8",
-        "name": "",
-        "type": "uint8"
-      }
+        internalType: "uint8",
+        name: "",
+        type: "uint8",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "eip712Domain",
-    "outputs": [
+    inputs: [],
+    name: "eip712Domain",
+    outputs: [
       {
-        "internalType": "bytes1",
-        "name": "fields",
-        "type": "bytes1"
+        internalType: "bytes1",
+        name: "fields",
+        type: "bytes1",
       },
       {
-        "internalType": "string",
-        "name": "name",
-        "type": "string"
+        internalType: "string",
+        name: "name",
+        type: "string",
       },
       {
-        "internalType": "string",
-        "name": "version",
-        "type": "string"
+        internalType: "string",
+        name: "version",
+        type: "string",
       },
       {
-        "internalType": "uint256",
-        "name": "chainId",
-        "type": "uint256"
+        internalType: "uint256",
+        name: "chainId",
+        type: "uint256",
       },
       {
-        "internalType": "address",
-        "name": "verifyingContract",
-        "type": "address"
+        internalType: "address",
+        name: "verifyingContract",
+        type: "address",
       },
       {
-        "internalType": "bytes32",
-        "name": "salt",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "salt",
+        type: "bytes32",
       },
       {
-        "internalType": "uint256[]",
-        "name": "extensions",
-        "type": "uint256[]"
-      }
+        internalType: "uint256[]",
+        name: "extensions",
+        type: "uint256[]",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
+        internalType: "address",
+        name: "token",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
     ],
-    "name": "flashFee",
-    "outputs": [
+    name: "flashFee",
+    outputs: [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "contract IERC3156FlashBorrower",
-        "name": "receiver",
-        "type": "address"
+        internalType: "contract IERC3156FlashBorrower",
+        name: "receiver",
+        type: "address",
       },
       {
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
+        internalType: "address",
+        name: "token",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
       },
       {
-        "internalType": "bytes",
-        "name": "data",
-        "type": "bytes"
-      }
+        internalType: "bytes",
+        name: "data",
+        type: "bytes",
+      },
     ],
-    "name": "flashLoan",
-    "outputs": [
+    name: "flashLoan",
+    outputs: [
       {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "token",
+        type: "address",
+      },
     ],
-    "name": "maxFlashLoan",
-    "outputs": [
+    name: "maxFlashLoan",
+    outputs: [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
+        internalType: "address",
+        name: "to",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
     ],
-    "name": "mint",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "mint",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "name",
-    "outputs": [
+    inputs: [],
+    name: "name",
+    outputs: [
       {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
+        internalType: "string",
+        name: "",
+        type: "string",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "owner",
+        type: "address",
+      },
     ],
-    "name": "nonces",
-    "outputs": [
+    name: "nonces",
+    outputs: [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [
+    inputs: [],
+    name: "owner",
+    outputs: [
       {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "pause",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    inputs: [],
+    name: "pause",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "paused",
-    "outputs": [
+    inputs: [],
+    name: "paused",
+    outputs: [
       {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
+        internalType: "address",
+        name: "owner",
+        type: "address",
       },
       {
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
+        internalType: "address",
+        name: "spender",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
       },
       {
-        "internalType": "uint256",
-        "name": "deadline",
-        "type": "uint256"
+        internalType: "uint256",
+        name: "deadline",
+        type: "uint256",
       },
       {
-        "internalType": "uint8",
-        "name": "v",
-        "type": "uint8"
+        internalType: "uint8",
+        name: "v",
+        type: "uint8",
       },
       {
-        "internalType": "bytes32",
-        "name": "r",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "r",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "s",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "s",
+        type: "bytes32",
+      },
     ],
-    "name": "permit",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "permit",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "renounceOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    inputs: [],
+    name: "renounceOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "symbol",
-    "outputs": [
+    inputs: [],
+    name: "symbol",
+    outputs: [
       {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
+        internalType: "string",
+        name: "",
+        type: "string",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "totalSupply",
-    "outputs": [
+    inputs: [],
+    name: "totalSupply",
+    outputs: [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
+        internalType: "address",
+        name: "to",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
     ],
-    "name": "transfer",
-    "outputs": [
+    name: "transfer",
+    outputs: [
       {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
+        internalType: "address",
+        name: "from",
+        type: "address",
       },
       {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
+        internalType: "address",
+        name: "to",
+        type: "address",
       },
       {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
     ],
-    "name": "transferFrom",
-    "outputs": [
+    name: "transferFrom",
+    outputs: [
       {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "newOwner",
+        type: "address",
+      },
     ],
-    "name": "transferOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "transferOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "unpause",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
+    inputs: [],
+    name: "unpause",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
 ];
