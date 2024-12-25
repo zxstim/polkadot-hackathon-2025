@@ -8,9 +8,9 @@ import {
   useWriteContract,
   useReadContracts,
   useAccount,
-  useBalance,
+  useSignMessage
 } from "wagmi";
-import { parseUnits, formatUnits, formatEther } from "viem";
+import { parseUnits, formatUnits, recoverPublicKey } from "viem";
 import {
   Ban,
   ExternalLink,
@@ -70,7 +70,6 @@ import {
 import { truncateHash } from "@/lib/utils";
 import CopyButton from "@/components/copy-button";
 import { getSigpassWallet } from "@/lib/sigpass";
-import { westendAssetHub } from "@/app/providers";
 import { useAtomValue } from "jotai";
 import { addressAtom } from "@/components/sigpasskit";
 import { Skeleton } from "./ui/skeleton";
@@ -91,6 +90,13 @@ export default function MintRedeemLstBifrost() {
   // get the address from session storage
   const address = useAtomValue(addressAtom);
 
+
+  // useSignMessage hook to sign message
+  const { signMessageAsync } = useSignMessage();
+
+  // state to store the public key
+  const [publicKey, setPublicKey] = useState<string | null>(null);
+
   // useWriteContract hook to write contract
   const {
     data: hash,
@@ -103,7 +109,9 @@ export default function MintRedeemLstBifrost() {
 
   const XCDOT_CONTRACT_ADDRESS = "0xFfFFfFff1FcaCBd218EDc0EbA20Fc2308C778080";
   const XCASTR_CONTRACT_ADDRESS = "0xFfFFFfffA893AD19e540E172C10d78D4d479B5Cf";
-  const XCBNC_CONTRACT_ADDRESS = "0xFFffffFf7cC06abdF7201b350A1265c62C8601d2";
+
+  // GLMR is both the native token of Moonbeam and an ERC20 token
+  const GLMR_CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000802";
   const BIFROST_SLPX_CONTRACT_ADDRESS =
     "0xF1d4797E51a4640a76769A50b57abE7479ADd3d8";
 
@@ -114,8 +122,8 @@ export default function MintRedeemLstBifrost() {
         return XCDOT_CONTRACT_ADDRESS;
       case "xcastr":
         return XCASTR_CONTRACT_ADDRESS;
-      case "xcbnc":
-        return XCBNC_CONTRACT_ADDRESS;
+      case "glmr":
+        return GLMR_CONTRACT_ADDRESS;
       default:
         return XCDOT_CONTRACT_ADDRESS;
     }
@@ -124,7 +132,7 @@ export default function MintRedeemLstBifrost() {
   // form schema for sending transaction
   const formSchema = z.object({
     // token is a required field selected from a list
-    token: z.enum(["xcdot", "glmr", "xcastr", "xcbnc"], {
+    token: z.enum(["xcdot", "glmr", "xcastr"], {
       required_error: "Please select a token",
     }),
     // amount is a required field
@@ -165,8 +173,10 @@ export default function MintRedeemLstBifrost() {
   // Extract the token value using watch instead of getValues
   const selectedToken = form.watch("token");
 
+  
+
   // useReadContracts hook to read contract
-  const { data, refetch } = useReadContracts({
+  const { data, refetch: refetchBalance } = useReadContracts({
     contracts: [
       {
         address: getContractAddress(selectedToken),
@@ -194,9 +204,6 @@ export default function MintRedeemLstBifrost() {
         ],
       },
     ],
-    query: {
-      enabled: selectedToken !== "glmr",
-    },
     config: address ? localConfig : config,
   });
 
@@ -213,14 +220,14 @@ export default function MintRedeemLstBifrost() {
   // check if the amount is greater than the mint allowance
   const needsApprove = mintAllowance !== undefined && 
     amount ? 
-    mintAllowance <= parseUnits(amount, decimals || 18) : 
+    mintAllowance < parseUnits(amount, decimals || 18) : 
     false;
 
 
       // 2. Define a submit handler.
   async function onSubmit(values: z.infer<typeof formSchema>) {
     // if the user has a sigpass wallet, and the token is not GLMR, approve the token
-    if (address && selectedToken !== "glmr") {
+    if (address) {
       if (needsApprove) {
         writeContractAsync({
           account: await getSigpassWallet(),
@@ -233,18 +240,58 @@ export default function MintRedeemLstBifrost() {
     }
 
     // if the user does not have a sigpass wallet, and the token is not GLMR, mint the token
-    if (!address && selectedToken !== "glmr") {
+    if (!address) {
+      if (needsApprove) {
+        writeContractAsync({
+          address: getContractAddress(values.token),
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [BIFROST_SLPX_CONTRACT_ADDRESS, parseUnits(values.amount, decimals as number)],
+        });
+      }
+    }
+
+    /**
+    * @dev Create order to mint vAsset or redeem vAsset on bifrost chain
+    * @param assetAddress The address of the asset to mint or redeem
+    * @param amount The amount of the asset to mint or redeem
+    * @param dest_chain_id When order is executed on Bifrost, Asset/vAsset will be transferred to this chain
+    * @param receiver The receiver address on the destination chain, 20 bytes for EVM, 32 bytes for Substrate
+    * @param remark The remark of the order, less than 32 bytes. For example, "OmniLS"
+    * @param channel_id The channel id of the order, you can set it. Bifrost chain will use it to share reward.
+    **/
+    if (!address && !needsApprove && selectedToken !== "glmr") {
       writeContractAsync({
-        address: getContractAddress(values.token),
-        abi: erc20Abi,
-        functionName: "transfer",
+        address: BIFROST_SLPX_CONTRACT_ADDRESS,
+        abi: moonbeamSlpxAbi,
+        functionName: "create_order",
         args: [
-          BIFROST_SLPX_CONTRACT_ADDRESS,
+          getContractAddress(values.token),
           parseUnits(values.amount, decimals as number),
+          1284, // Moonbeam chain id
+          account.address, // receiver
+          "dotui", // remark
+          0, // channel_id
         ],
       });
     }
 
+    if (!address && !needsApprove && selectedToken === "glmr") {
+      writeContractAsync({
+        address: BIFROST_SLPX_CONTRACT_ADDRESS,
+        abi: moonbeamSlpxAbi,
+        functionName: "create_order",
+        args: [
+          getContractAddress(values.token),
+          parseUnits(values.amount, decimals as number),
+          1284, // Moonbeam chain id
+          account.address, // receiver
+          "dotui", // remark
+          0, // channel_id
+        ],
+        value: parseUnits(values.amount, decimals as number),
+      });
+    }
     
     // if (address) {
     //   writeContractAsync({
@@ -274,14 +321,13 @@ export default function MintRedeemLstBifrost() {
     // }
   }
 
-  // Add useBalance hook for GLMR
-  const { data: glmrBalance } = useBalance({
-    address: address ? address : account.address,
-    query: {
-      enabled: selectedToken === "glmr",
-    },
-    config: address ? localConfig : config,
-  });
+  async function getPublicKey() {
+    const signedData = await signMessageAsync({
+      message: address ? `address=${address}` : `address=${account.address}`,
+    });
+
+    setPublicKey(signedData);
+  }
 
   // Watch for transaction hash and open dialog/drawer when received
   useEffect(() => {
@@ -300,9 +346,18 @@ export default function MintRedeemLstBifrost() {
   // when isConfirmed, refetch the balance of the address
   useEffect(() => {
     if (isConfirmed) {
-      refetch();
+      refetchBalance();
     }
-  }, [isConfirmed, refetch]);
+  }, [isConfirmed, refetchBalance]);
+
+  // Find the chain ID from the connected account
+  const chainId = account.chainId;
+
+  // Get the block explorer URL for the current chain using the config object
+  function getBlockExplorerUrl(chainId: number | undefined): string | undefined {
+    const chain = config.chains?.find(chain => chain.id === chainId);
+    return chain?.blockExplorers?.default?.url || config.chains?.[0]?.blockExplorers?.default?.url;
+  }
 
   return (
     <Tabs defaultValue="mint" className="w-[320px] md:w-[425px]">
@@ -334,7 +389,6 @@ export default function MintRedeemLstBifrost() {
                             <SelectItem value="xcdot">xcDOT</SelectItem>
                             <SelectItem value="glmr">GLMR</SelectItem>
                             <SelectItem value="xcastr">xcASTR</SelectItem>
-                            <SelectItem value="xcbnc">xcBNC</SelectItem>
                           </SelectGroup>
                         </SelectContent>
                       </Select>
@@ -353,28 +407,20 @@ export default function MintRedeemLstBifrost() {
                       <FormLabel>Amount</FormLabel>
                       <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
                         <WalletMinimal className="w-4 h-4" />{" "}
-                        {selectedToken === "glmr" ? (
-                          glmrBalance ? (
-                            formatEther(glmrBalance.value)
-                          ) : (
-                            <Skeleton className="w-[80px] h-4" />
-                          )
-                        ) : (
+                        {
                           maxBalance !== undefined ? (
                             formatUnits(maxBalance as bigint, decimals as number)
                           ) : (
                             <Skeleton className="w-[80px] h-4" />
                           )
-                        )}{" "}
-                        {selectedToken === "glmr" ? (
-                          "GLMR"
-                        ) : (
+                        }{" "}
+                        {
                           symbol ? (
                             symbol
                           ) : (
                             <Skeleton className="w-[40px] h-4" />
                           )
-                        )}
+                        }
                       </div>
                     </div>
                     <FormControl>
@@ -407,28 +453,20 @@ export default function MintRedeemLstBifrost() {
                 <h2>Token allowance</h2>
                 <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
                   <HandCoins className="w-4 h-4" />{" "}
-                  {selectedToken === "glmr" ? (
-                    glmrBalance ? (
-                      formatEther(glmrBalance.value)
-                    ) : (
-                      <Skeleton className="w-[80px] h-4" />
-                    )
-                  ) : (
+                  {
                     mintAllowance !== undefined ? (
                       formatUnits(mintAllowance as bigint, decimals as number)
                     ) : (
                       <Skeleton className="w-[80px] h-4" />
                     )
-                  )}{" "}
-                  {selectedToken === "glmr" ? (
-                    "GLMR"
-                  ) : (
+                  }{" "}
+                  {
                     symbol ? (
                       symbol
                     ) : (
                       <Skeleton className="w-[40px] h-4" />
                     )
-                  )}
+                  }
                 </div>
               </div>
               <div className="flex flex-row gap-2 items-center justify-between">
@@ -441,8 +479,6 @@ export default function MintRedeemLstBifrost() {
                       "xcvDOT"
                     ) : selectedToken === "xcastr" ? (
                       "xcvASTR"
-                    ) : selectedToken === "xcbnc" ? (
-                      "xcvBNC"
                     ) : (
                       <Skeleton className="w-[40px] h-4" />
                     )
@@ -469,11 +505,11 @@ export default function MintRedeemLstBifrost() {
                   </Button>
                 ) : needsApprove ? (
                   <Button disabled className="w-full">
-                    Send
+                    Mint
                   </Button>
                 ) : (
                   <Button type="submit" className="w-full">
-                    Send
+                    Mint
                   </Button>
                 )}
               </div>
@@ -503,7 +539,7 @@ export default function MintRedeemLstBifrost() {
                         Transaction Hash
                         <a
                           className="flex flex-row gap-2 items-center underline underline-offset-4"
-                          href={`${config.chains?.[0]?.blockExplorers?.default?.url}/tx/${hash}`}
+                          href={`${getBlockExplorerUrl(chainId)}/tx/${hash}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -571,7 +607,7 @@ export default function MintRedeemLstBifrost() {
                         Transaction Hash
                         <a
                           className="flex flex-row gap-2 items-center underline underline-offset-4"
-                          href={`${config.chains?.[0]?.blockExplorers?.default?.url}/tx/${hash}`}
+                          href={`${getBlockExplorerUrl(chainId)}/tx/${hash}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -1572,3 +1608,765 @@ const xcdotAbi = [
     type: "function",
   },
 ];
+
+
+const moonbeamSlpxAbi = [
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "previousAdmin",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "newAdmin",
+        "type": "address"
+      }
+    ],
+    "name": "AdminChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "beacon",
+        "type": "address"
+      }
+    ],
+    "name": "BeaconUpgraded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "implementation",
+        "type": "address"
+      }
+    ],
+    "name": "Upgraded",
+    "type": "event"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "fallback"
+  },
+  {
+    "inputs": [],
+    "name": "admin",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "admin_",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newAdmin",
+        "type": "address"
+      }
+    ],
+    "name": "changeAdmin",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "implementation",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "implementation_",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      }
+    ],
+    "name": "upgradeTo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      }
+    ],
+    "name": "upgradeToAndCall",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "receive"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "assetAddress",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint128",
+        "name": "amount",
+        "type": "uint128"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "dest_chain_id",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "receiver",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "remark",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "channel_id",
+        "type": "uint32"
+      }
+    ],
+    "name": "CreateOrder",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "version",
+        "type": "uint8"
+      }
+    ],
+    "name": "Initialized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "minter",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "assetAddress",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "callcode",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "remark",
+        "type": "string"
+      }
+    ],
+    "name": "Mint",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "Paused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "redeemer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "assetAddress",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "callcode",
+        "type": "bytes"
+      }
+    ],
+    "name": "Redeem",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "Unpaused",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "BNCAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "addressToAssetInfo",
+    "outputs": [
+      {
+        "internalType": "bytes2",
+        "name": "currencyId",
+        "type": "bytes2"
+      },
+      {
+        "internalType": "uint256",
+        "name": "operationalMin",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "bifrostParaId",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "assetAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint128",
+        "name": "amount",
+        "type": "uint128"
+      },
+      {
+        "internalType": "uint64",
+        "name": "dest_chain_id",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes",
+        "name": "receiver",
+        "type": "bytes"
+      },
+      {
+        "internalType": "string",
+        "name": "remark",
+        "type": "string"
+      },
+      {
+        "internalType": "uint32",
+        "name": "channel_id",
+        "type": "uint32"
+      }
+    ],
+    "name": "create_order",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "name": "destChainInfo",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "is_evm",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "is_substrate",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes1",
+        "name": "raw_chain_index",
+        "type": "bytes1"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_BNCAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_bifrostParaId",
+        "type": "uint32"
+      },
+      {
+        "internalType": "bytes2",
+        "name": "_nativeCurrencyId",
+        "type": "bytes2"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "assetAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "remark",
+        "type": "string"
+      }
+    ],
+    "name": "mintVAsset",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "assetAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "remark",
+        "type": "string"
+      },
+      {
+        "internalType": "uint32",
+        "name": "channel_id",
+        "type": "uint32"
+      }
+    ],
+    "name": "mintVAssetWithChannelId",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "remark",
+        "type": "string"
+      }
+    ],
+    "name": "mintVNativeAsset",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "remark",
+        "type": "string"
+      },
+      {
+        "internalType": "uint32",
+        "name": "channel_id",
+        "type": "uint32"
+      }
+    ],
+    "name": "mintVNativeAssetWithChannelId",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum MoonbeamSlpx.Operation",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "operationToFeeInfo",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "transactRequiredWeightAtMost",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint256",
+        "name": "feeAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint64",
+        "name": "overallWeight",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "paused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "vAssetAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      }
+    ],
+    "name": "redeemAsset",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "assetAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes2",
+        "name": "currencyId",
+        "type": "bytes2"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minimumValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "setAssetAddressInfo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "dest_chain_id",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bool",
+        "name": "is_evm",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "is_substrate",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes1",
+        "name": "raw_chain_index",
+        "type": "bytes1"
+      }
+    ],
+    "name": "setDestChainInfo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum MoonbeamSlpx.Operation",
+        "name": "_operation",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_transactRequiredWeightAtMost",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_overallWeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_feeAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "setOperationToFeeInfo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "unpause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_logic",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "admin_",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "_data",
+        "type": "bytes"
+      }
+    ],
+    "stateMutability": "payable",
+    "type": "constructor"
+  }
+]
