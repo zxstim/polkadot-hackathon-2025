@@ -7,10 +7,9 @@ import {
   useConfig,
   useWriteContract,
   useReadContracts,
-  useAccount,
-  useSignMessage
+  useAccount
 } from "wagmi";
-import { parseUnits, formatUnits, recoverPublicKey } from "viem";
+import { parseUnits, formatUnits } from "viem";
 import {
   Ban,
   ExternalLink,
@@ -72,7 +71,7 @@ import CopyButton from "@/components/copy-button";
 import { getSigpassWallet } from "@/lib/sigpass";
 import { useAtomValue } from "jotai";
 import { addressAtom } from "@/components/sigpasskit";
-import { Skeleton } from "./ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { localConfig } from "@/app/providers";
 
 export default function MintRedeemLstBifrost() {
@@ -89,13 +88,6 @@ export default function MintRedeemLstBifrost() {
 
   // get the address from session storage
   const address = useAtomValue(addressAtom);
-
-
-  // useSignMessage hook to sign message
-  const { signMessageAsync } = useSignMessage();
-
-  // state to store the public key
-  const [publicKey, setPublicKey] = useState<string | null>(null);
 
   // useWriteContract hook to write contract
   const {
@@ -292,41 +284,6 @@ export default function MintRedeemLstBifrost() {
         value: parseUnits(values.amount, decimals as number),
       });
     }
-    
-    // if (address) {
-    //   writeContractAsync({
-    //     account: await getSigpassWallet(),
-    //     address: USDC_CONTRACT_ADDRESS,
-    //     abi: erc20Abi,
-    //     functionName: "transfer",
-    //     args: [
-    //       values.address as Address,
-    //       parseUnits(values.amount, decimals as number),
-    //     ],
-    //     chainId: westendAssetHub.id,
-    //   });
-    // } else {
-    //   // Fallback to connected wallet
-    //   console.log(decimals);
-    //   writeContractAsync({
-    //     address: USDC_CONTRACT_ADDRESS,
-    //     abi: erc20Abi,
-    //     functionName: "transfer",
-    //     args: [
-    //       values.address as Address,
-    //       parseUnits(values.amount, decimals as number),
-    //     ],
-    //     chainId: westendAssetHub.id,
-    //   });
-    // }
-  }
-
-  async function getPublicKey() {
-    const signedData = await signMessageAsync({
-      message: address ? `address=${address}` : `address=${account.address}`,
-    });
-
-    setPublicKey(signedData);
   }
 
   // Watch for transaction hash and open dialog/drawer when received
@@ -1485,125 +1442,6 @@ const erc20Abi = [
     inputs: [],
     name: "unpause",
     outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-];
-
-const xcdotAbi = [
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "owner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "spender",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "value",
-        type: "uint256",
-      },
-    ],
-    name: "Approval",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: "address", name: "from", type: "address" },
-      { indexed: true, internalType: "address", name: "to", type: "address" },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "value",
-        type: "uint256",
-      },
-    ],
-    name: "Transfer",
-    type: "event",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "owner", type: "address" },
-      { internalType: "address", name: "spender", type: "address" },
-    ],
-    name: "allowance",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "spender", type: "address" },
-      { internalType: "uint256", name: "value", type: "uint256" },
-    ],
-    name: "approve",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "who", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "decimals",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "name",
-    outputs: [{ internalType: "string", name: "", type: "string" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "symbol",
-    outputs: [{ internalType: "string", name: "", type: "string" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "totalSupply",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "to", type: "address" },
-      { internalType: "uint256", name: "value", type: "uint256" },
-    ],
-    name: "transfer",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "address", name: "from", type: "address" },
-      { internalType: "address", name: "to", type: "address" },
-      { internalType: "uint256", name: "value", type: "uint256" },
-    ],
-    name: "transferFrom",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
     stateMutability: "nonpayable",
     type: "function",
   },
