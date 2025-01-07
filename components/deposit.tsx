@@ -285,7 +285,7 @@ export default function Deposit() {
           <Button size="icon" onClick={() => refetch()}><RefreshCcw /></Button>
         </div>
         <p className="text-lg text-muted-foreground">
-          You can deposit LST to the vault to mint zUSD.
+          You can deposit LST to mint zUSD
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div className="flex flex-col gap-2">
