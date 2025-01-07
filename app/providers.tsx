@@ -55,8 +55,8 @@ const { wallets } = getDefaultWallets();
 // initialize and destructure wallets object
 
 const config = getDefaultConfig({
-  appName: "ZEKAE", // Name your app
-  projectId: "ddf8cf3ee0013535c3760d4c79c9c8b9", // Enter your WalletConnect Project ID here
+  appName: "ZeKae", // Name your app
+  projectId: "3b7376a7eef2fae6c3e21a1d438c9f14", // Enter your WalletConnect Project ID here
   wallets: [
     ...wallets,
     {
