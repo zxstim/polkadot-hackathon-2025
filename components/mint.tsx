@@ -17,7 +17,6 @@ import {
   Hash,
   LoaderCircle,
   CircleCheck,
-  HandCoins,
   Coins,
   RefreshCcw,
 } from "lucide-react";
@@ -142,15 +141,6 @@ export default function Mint() {
           address ? address : account.address,
         ],
       },
-      {
-        address: ZUSD_CONTRACT_ADDRESS,
-        abi: zusdAbi,
-        functionName: "allowance",
-        args: [
-          address ? address : account.address,
-          ZEKAE_VAULT_CONTRACT_ADDRESS,
-        ],
-      },
     ],
     config: address ? localConfig : config,
   });
@@ -158,7 +148,6 @@ export default function Mint() {
   // extract the data from the read contracts hook
   const currentZusdBalance = data?.[0]?.result as bigint | undefined;
   const mintedAmount = data?.[1]?.result as bigint | undefined;
-  const burnAllowance = data?.[2]?.result as bigint | undefined;
 
   // useReadContracts hook to read contract
   const { data: oracleData, refetch: oracleRefetch, isFetching: oracleIsFetching } = useReadContracts({
@@ -186,15 +175,6 @@ export default function Mint() {
 
   // calculate the max mintable amount
   const maxMintable = oracleAnswer && depositAmount ? depositAmount * oracleAnswer : BigInt(0);
-
-  // extract the amount value from the form
-  const amount = form.watch("amount");
-
-  // check if the amount is greater than the mint allowance
-  const needsApprove = burnAllowance !== undefined && 
-    amount ? 
-    burnAllowance < parseUnits(amount, 18 as number) : 
-    false;
 
   // useWriteContract hook to write contract
   const {
