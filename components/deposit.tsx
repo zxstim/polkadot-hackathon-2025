@@ -1,3 +1,5 @@
+"use client";
+
 import {
   type BaseError,
   useWaitForTransactionReceipt,
@@ -62,8 +64,10 @@ export default function Deposit() {
         <p className="text-lg text-muted-foreground">
           You can deposit LST to the contract to mint zUSD.
         </p>
-        <h2 className="text-xl font-semibold tracking-tight">LST balance</h2>
-        <p>{formatUnits(currentLstBalance || BigInt(0), 18)}</p>
+        <h2 className="text-xl font-semibold tracking-tight">Wallet</h2>
+        <p>{formatUnits(currentLstBalance || BigInt(0), 18)} LST</p>
+        <h2 className="text-xl font-semibold tracking-tight">Deposited</h2>
+        <p>{formatUnits(depositAmount || BigInt(0), 18)} LST</p>
       </div>
     </div>
   );

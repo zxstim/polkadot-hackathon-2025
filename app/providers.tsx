@@ -14,11 +14,11 @@ import { defineChain } from 'viem';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, http, createConfig } from 'wagmi';
 import { Provider as JotaiProvider } from 'jotai';
-// import according to docs
 
-export const westendAssetHub = defineChain({
+
+export const assetHubWestend = defineChain({
   id: 420420421,
-  name: "Westend AssetHub",
+  name: "Asset-Hub Westend Testnet",
   nativeCurrency: {
     decimals: 18,
     name: 'Westend',
@@ -43,10 +43,10 @@ export const westendAssetHub = defineChain({
 
 export const localConfig = createConfig({
   chains: [
-    westendAssetHub,
+    assetHubWestend,
   ],
   transports: {
-    [westendAssetHub.id]: http(),
+    [assetHubWestend.id]: http(),
   },
   ssr: true,
 });
@@ -55,7 +55,7 @@ const { wallets } = getDefaultWallets();
 // initialize and destructure wallets object
 
 const config = getDefaultConfig({
-  appName: "DOTUI", // Name your app
+  appName: "ZEKAE", // Name your app
   projectId: "ddf8cf3ee0013535c3760d4c79c9c8b9", // Enter your WalletConnect Project ID here
   wallets: [
     ...wallets,
@@ -65,10 +65,10 @@ const config = getDefaultConfig({
     },
   ],
   chains: [
-    westendAssetHub,
+    assetHubWestend,
   ],
   transports: {
-    [westendAssetHub.id]: http(),
+    [assetHubWestend.id]: http(),
   },
   ssr: true, // Because it is Nextjs's App router, you need to declare ssr as true
 });

@@ -9,7 +9,7 @@ import { Copy, Check, KeyRound, Ban, ExternalLink, LogOut, ChevronDown, X } from
 import { formatEther, Address } from 'viem';
 import { createSigpassWallet, getSigpassWallet, checkSigpassWallet, checkBrowserWebAuthnSupport } from "@/lib/sigpass";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useBalance, createConfig, http, useConfig } from 'wagmi';
+import { useAccount, useBalance, useConfig } from 'wagmi';
 import {
   Dialog,
   DialogContent,
@@ -32,20 +32,12 @@ import {
 import Image from 'next/image';
 import { useAtom } from 'jotai';
 import { atomWithStorage, RESET } from 'jotai/utils';
-import { westendAssetHub } from '@/app/providers';
+import { assetHubWestend } from '@/app/providers';
+import { localConfig } from "@/app/providers";
 
 
 // Set the string key and the initial value
 export const addressAtom = atomWithStorage<Address | undefined>('SIGPASS_ADDRESS', undefined)
-
-// create a local config for the wallet
-const localConfig = createConfig({
-  chains: [westendAssetHub],
-  transports: {
-    [westendAssetHub.id]: http(),
-  },
-  ssr: true,
-});
 
 export default function SigpassKit() {
   const [wallet, setWallet] = useState<boolean>(false);
@@ -58,7 +50,7 @@ export default function SigpassKit() {
   const config = useConfig();
   const { data: balance } = useBalance({
     address: address,
-    chainId: westendAssetHub.id,
+    chainId: assetHubWestend.id,
     config: address ? localConfig : config,
   });
 
