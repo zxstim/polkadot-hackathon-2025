@@ -10,11 +10,6 @@ import {
   trustWallet,
   ledgerWallet,
 } from '@rainbow-me/rainbowkit/wallets';
-import {
-  manta,
-  moonbaseAlpha,
-  moonbeam
-} from 'wagmi/chains';
 import { defineChain } from 'viem';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, http, createConfig } from 'wagmi';
@@ -49,15 +44,9 @@ export const westendAssetHub = defineChain({
 export const localConfig = createConfig({
   chains: [
     westendAssetHub,
-    manta,
-    moonbaseAlpha,
-    moonbeam,
   ],
   transports: {
     [westendAssetHub.id]: http(),
-    [manta.id]: http(),
-    [moonbaseAlpha.id]: http(),
-    [moonbeam.id]: http(),
   },
   ssr: true,
 });
@@ -77,15 +66,9 @@ const config = getDefaultConfig({
   ],
   chains: [
     westendAssetHub,
-    moonbeam,
-    moonbaseAlpha,
-    manta
   ],
   transports: {
     [westendAssetHub.id]: http(),
-    [moonbeam.id]: http(),
-    [moonbaseAlpha.id]: http(),
-    [manta.id]: http(),
   },
   ssr: true, // Because it is Nextjs's App router, you need to declare ssr as true
 });
