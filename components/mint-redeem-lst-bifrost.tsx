@@ -83,6 +83,7 @@ export default function MintRedeemLstBifrost() {
 
   // useMediaQuery hook to check if the screen is desktop
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  
   // useState hook to open/close dialog/drawer
   const [open, setOpen] = useState(false);
 
