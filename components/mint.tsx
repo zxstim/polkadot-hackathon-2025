@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatUnits, parseUnits } from "viem";
-import { zusdAbi, zekaeVaultAbi } from "@/lib/abis";
+import { zusdAbi, zekaeVaultAbi, oracleAbi } from "@/lib/abis";
 import { getSigpassWallet } from "@/lib/sigpass";
 import { useAtomValue } from "jotai";
 import { addressAtom } from "@/components/sigpasskit";
@@ -88,7 +88,7 @@ export default function Mint() {
   // contract addresses
   const ZEKAE_VAULT_CONTRACT_ADDRESS = "0xF2cBA4d5C9A1A0b15bFCa4Db467422dcddB628e0";
   const ZUSD_CONTRACT_ADDRESS = "0x43bF52395Da87278AA56024D8879d749ee6Fa0B2";
-
+  const ORACLE_CONTRACT_ADDRESS = "0x6f92C5985f4A901a15521e0aa377c036008D02a0";
 
   // form schema for sending transaction
   const formSchema = z.object({
@@ -102,11 +102,11 @@ export default function Mint() {
         message: "Amount cannot have more than 18 decimal places",
       })
       .superRefine((val, ctx) => {
-        if (!currentZusdBalance) return;
+        if (!maxMintable) return;
 
         const inputAmount = parseUnits(val, 18 as number);
 
-        if (inputAmount > (currentZusdBalance as bigint)) {
+        if (inputAmount > (maxMintable as bigint)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "Amount exceeds available balance",
@@ -158,15 +158,46 @@ export default function Mint() {
   // extract the data from the read contracts hook
   const currentZusdBalance = data?.[0]?.result as bigint | undefined;
   const mintedAmount = data?.[1]?.result as bigint | undefined;
-  const mintAllowance = data?.[2]?.result as bigint | undefined;
+  const burnAllowance = data?.[2]?.result as bigint | undefined;
+
+  useEffect(() => {
+    console.log(data);
+  }, [data]);
+
+  // useReadContracts hook to read contract
+  const { data: oracleData, refetch: oracleRefetch, isFetching: oracleIsFetching } = useReadContracts({
+    contracts: [
+      {
+        address: ORACLE_CONTRACT_ADDRESS,
+        abi: oracleAbi,
+        functionName: "latestAnswer",
+      },
+      {
+        address: ZEKAE_VAULT_CONTRACT_ADDRESS,
+        abi: zekaeVaultAbi,
+        functionName: "addressToDeposit",
+        args: [
+          address ? address : account.address,
+        ],
+      }
+    ],
+    config: address ? localConfig : config,
+  });
+
+  // extract the data from the read contracts hook
+  const oracleAnswer = oracleData?.[0]?.result as bigint | undefined;
+  const depositAmount = oracleData?.[1]?.result as bigint | undefined;
+
+  // calculate the max mintable amount
+  const maxMintable = oracleAnswer && depositAmount ? depositAmount * oracleAnswer : BigInt(0);
 
   // extract the amount value from the form
   const amount = form.watch("amount");
 
   // check if the amount is greater than the mint allowance
-  const needsApprove = mintAllowance !== undefined && 
+  const needsApprove = burnAllowance !== undefined && 
     amount ? 
-    mintAllowance < parseUnits(amount, 18 as number) : 
+    burnAllowance < parseUnits(amount, 18 as number) : 
     false;
 
   // useWriteContract hook to write contract
@@ -243,8 +274,9 @@ export default function Mint() {
   useEffect(() => {
     if (isConfirmed) {
       refetch();
+      oracleRefetch();
     }
-  }, [isConfirmed, refetch]);
+  }, [isConfirmed, refetch, oracleRefetch]);
 
   // Find the chain ID from the connected account
   const chainId = account.chainId;
@@ -271,18 +303,18 @@ export default function Mint() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div className="flex flex-col gap-2">
             <h2 className="text-xl font-semibold tracking-tight">Wallet</h2>
-            {isFetching ? (
+            {isFetching && oracleIsFetching ? (
               <Skeleton className="h-6 w-32" />
             ) : (
               <p>{formatBalance(formatUnits(currentZusdBalance || BigInt(0), 18))} zUSD</p>
             )}
           </div>
           <div className="flex flex-col gap-2">
-            <h2 className="text-xl font-semibold tracking-tight">Deposited</h2>
-            {isFetching ? (
+            <h2 className="text-xl font-semibold tracking-tight">Mintable</h2>
+            {isFetching && oracleIsFetching ? (
               <Skeleton className="h-6 w-32" />
             ) : (
-              <p>{formatBalance(formatUnits(mintedAmount || BigInt(0), 18))} zUSD</p>
+              <p>{`${formatBalance(formatUnits(mintedAmount || BigInt(0), 18))} / ${formatBalance(formatUnits(maxMintable || BigInt(0), 36))}`} zUSD</p>
             )}
           </div>
         </div>
@@ -534,8 +566,8 @@ export default function Mint() {
                   <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
                     <HandCoins className="w-4 h-4" />{" "}
                     {
-                      mintAllowance !== undefined ? (
-                        formatUnits(mintAllowance as bigint, 18)
+                      burnAllowance !== undefined ? (
+                        formatUnits(burnAllowance as bigint, 18)
                       ) : (
                         <Skeleton className="w-[80px] h-4" />
                       )
@@ -550,8 +582,10 @@ export default function Mint() {
                           <LoaderCircle className="w-4 h-4 animate-spin" /> Confirm in
                           wallet...
                         </Button>
+                      ) : needsApprove ? (
+                        <Button type="submit" className="w-full">Approve</Button>
                       ) : (
-                        <Button variant="outline" onClick={() => form.reset()} className="w-full">Clear</Button>
+                        <Button disabled className="w-full">Approve</Button>
                       )
                     }
                     {isPending ? (
@@ -559,9 +593,13 @@ export default function Mint() {
                         <LoaderCircle className="w-4 h-4 animate-spin" /> Confirm in
                         wallet...
                       </Button>
+                    ) : needsApprove ? (
+                      <Button disabled className="w-full">
+                        Burn
+                      </Button>
                     ) : (
                       <Button type="submit" className="w-full">
-                        Withdraw
+                        Burn
                       </Button>
                     )}
                   </div>
