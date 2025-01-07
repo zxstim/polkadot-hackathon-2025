@@ -351,13 +351,11 @@ export default function Deposit() {
                   <h2>Token allowance</h2>
                   <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
                     <HandCoins className="w-4 h-4" />{" "}
-                    {
-                      depositAllowance !== undefined ? (
-                        formatUnits(depositAllowance as bigint, 18)
-                      ) : (
-                        <Skeleton className="w-[80px] h-4" />
-                      )
-                    }
+                    {isFetching ? (
+                      <Skeleton className="h-6 w-32" />
+                    ) : (
+                      <p>{formatBalance(formatUnits(depositAllowance || BigInt(0), 18))} LST</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
