@@ -263,6 +263,11 @@ export default function Mint() {
     return chain?.blockExplorers?.default?.url || config.chains?.[0]?.blockExplorers?.default?.url;
   }
 
+  function refreshMint() {
+    refetch();
+    oracleRefetch();
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-col gap-4 border border-gray-200 rounded-lg p-4">
@@ -271,7 +276,7 @@ export default function Mint() {
             <Coins className="w-10 h-10" />
             <h1 className="scroll-m-20 text-2xl font-extrabold tracking-tight lg:text-3xl">Mint</h1>
           </div>
-          <Button size="icon" onClick={() => refetch()}><RefreshCcw /></Button>
+          <Button size="icon" onClick={refreshMint}><RefreshCcw /></Button>
         </div>
         <p className="text-lg text-muted-foreground">
           You can mint and burn zUSD
@@ -279,7 +284,7 @@ export default function Mint() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div className="flex flex-col gap-2">
             <h2 className="text-xl font-semibold tracking-tight">Wallet</h2>
-            {isFetching && oracleIsFetching ? (
+            {isFetching || oracleIsFetching ? (
               <Skeleton className="h-6 w-32" />
             ) : (
               <p>{formatBalance(formatUnits(currentZusdBalance || BigInt(0), 18))} zUSD</p>
@@ -287,7 +292,7 @@ export default function Mint() {
           </div>
           <div className="flex flex-col gap-2">
             <h2 className="text-xl font-semibold tracking-tight">Mintable</h2>
-            {isFetching && oracleIsFetching ? (
+            {isFetching || oracleIsFetching ? (
               <Skeleton className="h-6 w-32" />
             ) : (
               <p>{`${formatBalance(formatUnits(mintedAmount || BigInt(0), 18))} / ${formatBalance(formatUnits(maxMintable || BigInt(0), 36))}`} zUSD</p>
