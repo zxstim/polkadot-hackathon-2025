@@ -160,10 +160,6 @@ export default function Mint() {
   const mintedAmount = data?.[1]?.result as bigint | undefined;
   const burnAllowance = data?.[2]?.result as bigint | undefined;
 
-  useEffect(() => {
-    console.log(data);
-  }, [data]);
-
   // useReadContracts hook to read contract
   const { data: oracleData, refetch: oracleRefetch, isFetching: oracleIsFetching } = useReadContracts({
     contracts: [
@@ -240,7 +236,7 @@ export default function Mint() {
         account: await getSigpassWallet(),
         address: ZEKAE_VAULT_CONTRACT_ADDRESS,
         abi: zekaeVaultAbi,
-        functionName: "withdraw",
+        functionName: "burn",
         args: [parseUnits(values.amount, 18)],
       });
     }
@@ -250,7 +246,7 @@ export default function Mint() {
       writeContractAsync({
         address: ZEKAE_VAULT_CONTRACT_ADDRESS,
         abi: zekaeVaultAbi,
-        functionName: "withdraw",
+        functionName: "burn",
         args: [parseUnits(values.amount, 18)],
       });
     }
@@ -561,19 +557,6 @@ export default function Mint() {
                     </FormItem>
                   )}
                 />
-                <div className="flex flex-row gap-2 items-center justify-between">
-                  <h2>Token allowance</h2>
-                  <div className="flex flex-row gap-2 items-center text-xs text-muted-foreground">
-                    <HandCoins className="w-4 h-4" />{" "}
-                    {
-                      burnAllowance !== undefined ? (
-                        formatUnits(burnAllowance as bigint, 18)
-                      ) : (
-                        <Skeleton className="w-[80px] h-4" />
-                      )
-                    }
-                  </div>
-                </div>
                 <div className="flex flex-col gap-2">
                   <div className="grid grid-cols-2 gap-2">
                     {
@@ -582,20 +565,14 @@ export default function Mint() {
                           <LoaderCircle className="w-4 h-4 animate-spin" /> Confirm in
                           wallet...
                         </Button>
-                      ) : needsApprove ? (
-                        <Button type="submit" className="w-full">Approve</Button>
                       ) : (
-                        <Button disabled className="w-full">Approve</Button>
+                        <Button variant="outline" onClick={() => form.reset()} className="w-full">Clear</Button>
                       )
                     }
                     {isPending ? (
                       <Button type="submit" disabled className="w-full">
                         <LoaderCircle className="w-4 h-4 animate-spin" /> Confirm in
                         wallet...
-                      </Button>
-                    ) : needsApprove ? (
-                      <Button disabled className="w-full">
-                        Burn
                       </Button>
                     ) : (
                       <Button type="submit" className="w-full">
