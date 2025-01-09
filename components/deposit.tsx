@@ -86,8 +86,8 @@ export default function Deposit() {
   const [open, setOpen] = useState(false);
 
   // contract addresses
-  const LST_CONTRACT_ADDRESS = "0xac329056F5d04C1125d8d3500cD2dF819eD9cA86";
-  const ZEKAE_VAULT_CONTRACT_ADDRESS = "0xF2cBA4d5C9A1A0b15bFCa4Db467422dcddB628e0";
+  const LST_CONTRACT_ADDRESS = "0xC4F238cEdC1f77A0Fe36F60eceDef14336e4eFbe";
+  const ZEKAE_VAULT_CONTRACT_ADDRESS = "0x1dB58359534600b08Fe7061608920f1C47E7b0b0";
 
 
   // form schema for sending transaction

@@ -85,9 +85,9 @@ export default function Mint() {
   const [open, setOpen] = useState(false);
 
   // contract addresses
-  const ZEKAE_VAULT_CONTRACT_ADDRESS = "0xF2cBA4d5C9A1A0b15bFCa4Db467422dcddB628e0";
-  const ZUSD_CONTRACT_ADDRESS = "0x43bF52395Da87278AA56024D8879d749ee6Fa0B2";
-  const ORACLE_CONTRACT_ADDRESS = "0x6f92C5985f4A901a15521e0aa377c036008D02a0";
+  const ZEKAE_VAULT_CONTRACT_ADDRESS = "0x1dB58359534600b08Fe7061608920f1C47E7b0b0";
+  const ZUSD_CONTRACT_ADDRESS = "0x66f039Bc124A3f45D3b30BFdD903B72a4857878f";
+  const ORACLE_CONTRACT_ADDRESS = "0x1Ed8c557791e0c98D72387423ab5c215d358E5a4";
 
   // form schema for sending transaction
   const formSchema = z.object({
@@ -174,7 +174,7 @@ export default function Mint() {
   const depositAmount = oracleData?.[1]?.result as bigint | undefined;
 
   // calculate the max mintable amount
-  const maxMintable = oracleAnswer && depositAmount ? depositAmount * oracleAnswer : BigInt(0);
+  const maxMintable = oracleAnswer && depositAmount ? (depositAmount * oracleAnswer * BigInt(2) / BigInt(3)) : BigInt(0);
 
   // useWriteContract hook to write contract
   const {
