@@ -62,7 +62,29 @@ I want to empower Liquid Staking Tokens like those provided by Bifrost to be use
 
 ## **How It Works**  
 ### Architecture  
+#### LST token contract
+An ERC20 token contract that is representative of the LST that will be available on Asset Hub.
 
+#### zUSD contract
+An ERC20 token contract that is a stablecoin and has the vault as the owner (the only one who can mint and burn).
+
+#### ZeKaeVault contract
+A contract that allows users to deposit LST, withdraw LST, mint zUSD and burn zUSD. Additionally, it has a liquidation function that allows the liquidators to liquidate LST from the user when the collateral ratio is below threshold. The collateral ratio is set at 150% for now.
+
+Revelant functions:
+- `deposit(uint256 amount)`
+- `withdraw(uint256 amount)`
+- `mint(uint256 amount)`
+- `burn(uint256 amount)`
+- `liquidate(address user)`
+
+#### SimpleMockOracle contract
+A simple mock oracle contract that returns the exchange rate between the underlying asset and the LST, the price of the underlying asset and the price of the LST.
+
+Relevant functions:
+- `getExchangeRate()`
+- `getPriceOfUnderlyingAsset()`
+- `latestAnswer()`
 
 ### Demo Instructions
 Please use Moonbeam Alpha (Moonbeam Testnet) to test the demo. Asset Hub had issues preventing me from deploying some core contracts.
@@ -78,15 +100,18 @@ https://youtu.be/TmQpZLjYp2s
 
 ## **Submission Details**  
 - **GitHub Repository:**  
-  https://github.com/zxstim/zekaehq/zekae-contracts
-  https://github.com/zxstim/zekaehq/zekae-dapp
+    - https://github.com/zxstim/zekaehq/zekae-contracts
+    - https://github.com/zxstim/zekaehq/zekae-dapp
 - **Live Demo:**  
-  https://zekae.com
+    - https://zekae.com
 - **Documentation:**  
-  Read more below
+    - Read more below
 - **Presentation Slides:**  
-  https://youtu.be/TmQpZLjYp2s
+    - https://youtu.be/TmQpZLjYp2s
 
 ## **Acknowledgments**  
 - Partially inspired by Lybra Finance but with a really simple design.
+
+
+## **Documentation**
 
