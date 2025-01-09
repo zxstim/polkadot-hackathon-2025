@@ -62,18 +62,19 @@ I want to empower Liquid Staking Tokens like those provided by Bifrost to be use
 
 ## **How It Works**  
 ### Architecture  
-[Provide a high-level explanation of your project's architecture. Attach diagrams or flowcharts if applicable.]
 
-### Demo Instructions  
-[Provide step-by-step instructions on how to use or test your project. Include any setup steps, such as running a local server or connecting to a blockchain.]
+
+### Demo Instructions
+Please use Moonbeam Alpha (Moonbeam Testnet) to test the demo. Asset Hub had issues preventing me from deploying some core contracts.
+https://youtu.be/TmQpZLjYp2s
 
 ## **Challenges**  
 ### What challenges did you face?  
-[Explain the difficulties you encountered during development and how you overcame them.]
+- Mostly just Asset Hub RPC stability issues.
 
 ## **Future Development**  
 ### What’s next for your project?  
-[Outline plans for future development, features you would like to add, or areas for improvement.]
+- Add more features like flash loans, more features, etc.
 
 ## **Submission Details**  
 - **GitHub Repository:**  
@@ -83,7 +84,9 @@ I want to empower Liquid Staking Tokens like those provided by Bifrost to be use
   https://zekae.com
 - **Documentation:**  
   Read more below
+- **Presentation Slides:**  
+  https://youtu.be/TmQpZLjYp2s
 
 ## **Acknowledgments**  
-- Self developed based on really simple lending vault.
+- Partially inspired by Lybra Finance but with a really simple design.
 
